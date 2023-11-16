@@ -87,21 +87,21 @@ set_property(TARGET ${APP} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # --------------------------------------------- Pybind11 support
 # find_package(Python 3.11 COMPONENTS Interpreter Development REQUIRED)
-# set(PYBIND11 ${CMAKE_SOURCE_DIR}/3rdparty/pybind11)
-# set(PYBIND11_JSON ${CMAKE_SOURCE_DIR}/3rdparty/pybind11_json)
-# set(NLOHMANN_JSON ${CMAKE_SOURCE_DIR}/3rdparty/json)
-# set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(PYBIND11 ${CMAKE_SOURCE_DIR}/3rdparty/pybind11)
+set(PYBIND11_JSON ${CMAKE_SOURCE_DIR}/3rdparty/pybind11_json)
+set(NLOHMANN_JSON ${CMAKE_SOURCE_DIR}/3rdparty/json)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
 
-# include_directories(SYSTEM ${PYBIND11_JSON}/include)
-# add_subdirectory(${NLOHMANN_JSON})
-# add_subdirectory(${PYBIND11})
+include_directories(SYSTEM ${PYBIND11_JSON}/include)
+add_subdirectory(${NLOHMANN_JSON})
+add_subdirectory(${PYBIND11})
 
-# add_definitions(-Dssize_t=SSIZE_T)
-# set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=SSIZE_T)
+add_definitions(-Dssize_t=SSIZE_T)
+set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=SSIZE_T)
 
-# set(ZBENCH_SRC zbench.cpp)
-# pybind11_add_module(zbench ${ZBENCH_SRC})
-# target_link_libraries(zbench PRIVATE nlohmann_json::nlohmann_json ${CMAKE_DL_LIBS})
+set(ZBENCH_SRC zbench.cpp)
+pybind11_add_module(zbench ${ZBENCH_SRC})
+target_link_libraries(zbench PRIVATE nlohmann_json::nlohmann_json ${CMAKE_DL_LIBS})
 # ---------------------------------------------
 # set(EXAMPLES_DIR ${CMAKE_CURRENT_LIST_DIR} )
 # set(EXAMPLES_OCL bgemm vadd_hello_ocl)
