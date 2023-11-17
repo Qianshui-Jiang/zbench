@@ -15,13 +15,13 @@
 #define NOMINMAX
 
 #include <algorithm>
-#include <fstream>
-#include <iterator>
-#include <iostream>
-#include <vector>
-#include <cstring>
 #include <array>
 #include <bitset>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <vector>
 
 namespace cm_utils {
 
@@ -42,7 +42,8 @@ std::vector<T> read_binary_file(const char *fname, size_t num = 0) {
   return vec;
 }
 
-template <typename T, template <typename, typename> typename Container, typename Allocator>
+template <typename T, template <typename, typename> typename Container,
+          typename Allocator>
 bool write_binary_file(const char *fname, const Container<T, Allocator> &vec,
                        size_t num = 0) {
   std::ofstream ofs(fname, std::ios::out | std::ios::binary);
@@ -60,7 +61,8 @@ bool cmp_binary_files(const char *fname1, const char *fname2, T tolerance) {
   const auto vec2 = read_binary_file<T>(fname2);
   if (vec1.size() != vec2.size()) {
     std::cerr << fname1 << " size is " << vec1.size();
-    std::cerr << " whereas " << fname2 << " size is " << vec2.size() << std::endl;
+    std::cerr << " whereas " << fname2 << " size is " << vec2.size()
+              << std::endl;
     return false;
   }
   for (size_t i = 0; i < vec1.size(); i++) {
@@ -78,20 +80,18 @@ bool cmp_binary_files(const char *fname1, const char *fname2, T tolerance) {
 }
 
 // dump every element of sequence [first, last) to std::cout
-template<typename ForwardIt>
-void dump_seq(ForwardIt first, ForwardIt last) {
+template <typename ForwardIt> void dump_seq(ForwardIt first, ForwardIt last) {
   using ValueT = typename std::iterator_traits<ForwardIt>::value_type;
-  std::copy(first, last,
-      std::ostream_iterator<ValueT>{std::cout, " "});
+  std::copy(first, last, std::ostream_iterator<ValueT>{std::cout, " "});
   std::cout << std::endl;
 }
 
 // Checks wether ranges [first, last) and [ref_first, ref_last) are equal.
 // If a mismatch is found, dumps elements that differ and returns true,
 // otherwise false is returned.
-template<typename ForwardIt, typename RefForwardIt, typename BinaryPredicateT>
-bool check_fail_seq(ForwardIt first, ForwardIt last,
-    RefForwardIt ref_first, RefForwardIt ref_last, BinaryPredicateT is_equal) {
+template <typename ForwardIt, typename RefForwardIt, typename BinaryPredicateT>
+bool check_fail_seq(ForwardIt first, ForwardIt last, RefForwardIt ref_first,
+                    RefForwardIt ref_last, BinaryPredicateT is_equal) {
   auto mism = std::mismatch(first, last, ref_first, is_equal);
   if (mism.first != last) {
     std::cout << "mismatch: returned " << *mism.first << std::endl;
@@ -101,20 +101,21 @@ bool check_fail_seq(ForwardIt first, ForwardIt last,
   return false;
 }
 
-template<typename ForwardIt, typename RefForwardIt>
-bool check_fail_seq(ForwardIt first, ForwardIt last,
-    RefForwardIt ref_first, RefForwardIt ref_last) {
-  return check_fail_seq(first, last, ref_first, ref_last,
-      [] (const auto &lhs, const auto &rhs) { return lhs == rhs; });
+template <typename ForwardIt, typename RefForwardIt>
+bool check_fail_seq(ForwardIt first, ForwardIt last, RefForwardIt ref_first,
+                    RefForwardIt ref_last) {
+  return check_fail_seq(
+      first, last, ref_first, ref_last,
+      [](const auto &lhs, const auto &rhs) { return lhs == rhs; });
 }
 
 // analog to C++20 bit_cast
-template<typename To, typename From,
-  typename std::enable_if<(sizeof(To) == sizeof(From)) &&
-    std::is_trivially_copyable<From>::value &&
-    std::is_trivial<To>::value, int>::type = 0>
-To bit_cast(const From &src) noexcept
-{
+template <typename To, typename From,
+          typename std::enable_if<(sizeof(To) == sizeof(From)) &&
+                                      std::is_trivially_copyable<From>::value &&
+                                      std::is_trivial<To>::value,
+                                  int>::type = 0>
+To bit_cast(const From &src) noexcept {
   To dst;
   std::memcpy(&dst, &src, sizeof(To));
   return dst;
@@ -136,7 +137,7 @@ static inline void aligned_free(void *ptr) {
 #endif
 }
 
-template<std::size_t width>
+template <std::size_t width>
 std::array<bool, width> unpack_mask(std::bitset<width> packed) {
   std::array<bool, width> unpacked;
   for (int i = 0; i != width; ++i)

@@ -1,42 +1,11 @@
-/*
- * Copyright (c) 2017, Intel Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- */
-
-#include <fstream>
-
-#ifdef CM_COMPILE_ONLINE
-#include <ocloc_api.h>
-#include "ocloc_helper.h"
-#endif
-
-#include "l0_rt_helpers.h"
-#include "share.h"
-#include "Matrix.h"
+#include "sgemm.h"
 #ifndef _WIN32
 #define FALSE 0
 #define TRUE  1
 #endif
 
 
-int RunGemm(int m, int niterations, int gx, int gy)
+int run_gemm(int m, int niterations, int gx, int gy)
 {
     storage_type_t st = RowMajor;
     float alpha=+1.0, beta=+1.0;
@@ -63,8 +32,8 @@ int RunGemm(int m, int niterations, int gx, int gy)
     auto hCommandList = createImmCommandList(hContext, hDevice);
 
     // Allocate matrices
-    Matrix A(m,k, lda, NULL, true, "A", st);
-    Matrix B(k, n,ldb, NULL, true, "B", st);
+    Matrix A(m, k, lda, NULL, true, "A", st);
+    Matrix B(k, n, ldb, NULL, true, "B", st);
     Matrix C_gold(m, n, ldc, NULL, false, "C_gold",  st);
     Matrix C(C_gold, "C");
     Matrix zero(C_gold, "C");
@@ -75,11 +44,6 @@ int RunGemm(int m, int niterations, int gx, int gy)
         // Compute gold result
         printf("Compute gold result\n");
 
-        // To use the CBLAS function below from MKL,
-        // add the header files in common.h in order to compile with MKL.
-        //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-        //            m, n, k, alpha, &A(0,0), A.l_dim(),
-        //            &B(0,0), B.l_dim(), beta, &C_gold(0,0), C_gold.l_dim());
         sgemmNxN(m, n, k, alpha, &A(0,0), A.l_dim(),
                  &B(0,0), B.l_dim(), beta, &C_gold(0,0), C_gold.l_dim());
 
@@ -95,21 +59,8 @@ int RunGemm(int m, int niterations, int gx, int gy)
     ze_group_count_t launchArgs = {nthreadsX/gx, nthreadsY/gy, 1};
     const char* kname = "sgemm_kernel";
 
-#ifdef CM_COMPILE_ONLINE
-    const char *mainFileName = BINNAME;
-    std::string cmcCompileLine = GetCMCCompileLine();
-    assert(std::getenv("IGC_CMFE_DEFAULT_ARCH"));
-    std::vector<const char*> oclocArgv = { "ocloc", "compile", "-device", std::getenv("IGC_CMFE_DEFAULT_ARCH"),
-                                           "-file", mainFileName, "-options", cmcCompileLine.c_str()};
-    auto oclocInfo = oclocOnlineCompile(mainFileName, oclocArgv);
-  #ifdef OCLOC_SPIRV
-    auto hKernel = createKernel(hContext, hDevice, oclocInfo.GetOutput(0), oclocInfo.GetOutputLength(0), kname);
-  #else
-    auto hKernel = createKernel(hContext, hDevice, oclocInfo.GetOutput(1), oclocInfo.GetOutputLength(1), kname);
-  #endif
-#else
+    char *BINNAME = "sgemm_genx.bin";
     auto hKernel = createKernel(hContext, hDevice, BINNAME, kname);
-#endif
 
     L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, gx, gy, 1));
 
@@ -133,7 +84,7 @@ int RunGemm(int m, int niterations, int gx, int gy)
                     kernel_ns += (timestamp.context.kernelEnd - timestamp.context.kernelStart);
 
                     reset(hEvent);
-                    //reset(hCommandList);
+                    reset(hCommandList);
 
                 }
     // average time in msec
@@ -144,8 +95,8 @@ int RunGemm(int m, int niterations, int gx, int gy)
     copyToMemory(hCommandList, (void*)&C_test(0,0), hCImage, hEvent);
     zeEventHostSynchronize(hEvent, std::numeric_limits<uint32_t>::max());
 
-    printf("%-18s%.2lf msec\n","kern time:", tkern);
-    printf("%-18s%.2lf msec\n","host time:", thost);
+    printf("%-18s%.4lf msec\n","kern time:", tkern);
+    printf("%-18s%.4lf msec\n","host time:", thost);
 
     double gflops;
     //gflops = ((2000.0f*m*n*k) / (1.0f*1024*1024*1024)) / tkern;
@@ -188,17 +139,17 @@ int main(int argc, char** argv)
 
     int success = 0;
     if (niterations == 1)
-        success |= RunGemm( m, niterations, 1, 4 );
+        success |= run_gemm( m, niterations, 1, 4 );
     else {
         int success = 0;
-        success |= RunGemm( m, niterations, 1, 1 );
-        success |= RunGemm( m, niterations, 1, 4 );
-        success |= RunGemm( m, niterations, 4, 1 );
-        success |= RunGemm( m, niterations, 2, 2 );
-        success |= RunGemm( m, niterations, 1, 8 );
-        success |= RunGemm( m, niterations, 8, 1 );
-        success |= RunGemm( m, niterations, 2, 4 );
-        success |= RunGemm( m, niterations, 4, 2 );
+        success |= run_gemm( m, niterations, 1, 1 );
+        success |= run_gemm( m, niterations, 1, 4 );
+        success |= run_gemm( m, niterations, 4, 1 );
+        success |= run_gemm( m, niterations, 2, 2 );
+        success |= run_gemm( m, niterations, 1, 8 );
+        success |= run_gemm( m, niterations, 8, 1 );
+        success |= run_gemm( m, niterations, 2, 4 );
+        success |= run_gemm( m, niterations, 4, 2 );
     }
     return success;
 }

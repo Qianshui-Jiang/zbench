@@ -2,24 +2,27 @@
 #include <vector>
 
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/numpy.h>
-#include <pybind11_json/pybind11_json.hpp>
-namespace py = pybind11;
-#include <nlohmann/json.hpp>
-namespace nl = nlohmann;
+// #include <pybind11/stl.h>
+// #include <pybind11/numpy.h>
+// #include <pybind11_json/pybind11_json.hpp>
+// namespace py = pybind11;
+// #include <nlohmann/json.hpp>
+// namespace nl = nlohmann;
 
-
-
-int add(int i, int j)
-{
-    return i + j;
-}
+#include "dev_test.h"
+// #include "sgemm.h"
 
 PYBIND11_MODULE(zbench, m)
 {
-
-    m.doc() = "pybind11 example plugin";
-
+    m.doc() = "pybind11 testbed for meta commande and CM kernels";
+    // dev function/feature test
     m.def("add", &add, "A function which adds two numbers", py::arg("i") = 1, py::arg("j") = 2);
+    m.def("test_bind", &test_bind, py::arg("mode"), py::arg("input"),"test pybind11 for array transfering");
+    m.def("test_take_json", &test_take_json, "pass py::object to a C++ function that takes an nlohmann::json");
+    m.def("test_get_json", &test_get_json, "return py::object from a C++ function that returns an nlohmann::json");
+
+    // sample bench for sgemm cm kernel
+    // m.def("run_gemm", &run_gemm, "A function which adds two numbers", 
+    //       py::arg("m") = 1024, py::arg("niterations") = 1,
+    //       py::arg("gy") = 1, py::arg("gx") = 4);
 }

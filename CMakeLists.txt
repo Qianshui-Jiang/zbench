@@ -44,48 +44,55 @@ set(DEBUG_DIR ${CMAKE_BINARY_DIR}/Debug)
 # --------------------------------------------- Kernel Compile
 set(DEVICE "DG2")
 set(CPU "ADL")
-set(APP "Sgemm")
-set(KERNEL "Sgemm_genx")
-link_directories($ENV{CSDK_IGC}/usr/lib/x86_64-linux-gnu)
+set(APP "sgemm")
+# link_directories($ENV{CSDK_IGC}/usr/lib/x86_64-linux-gnu)
 
 set(CM_KERNEL_DIR ${CMAKE_SOURCE_DIR}/cm_kernels)
 set(RT_L0_PATH  ${CMAKE_SOURCE_DIR}/rt_l0)
 file(GLOB KERNEL_SRC  ${CM_KERNEL_DIR}/*.cpp)
 file(GLOB RTL0_SRC  ${RT_L0_PATH}/*.cpp)
 
-message(${RTL0_SRC})
+foreach(KERNEL_FILE ${KERNEL_SRC})
+  get_filename_component(KERNEL ${KERNEL_FILE} NAME_WE )
+  message(${KERNEL_FILE}:${KERNEL})
+  list(APPEND KERNEL_LIST ${KERNEL}.bin)
+  add_custom_command(
+    OUTPUT ${KERNEL}.bin
+    # COMMAND ${CMC} -emit-spirv -march=${HW_PLATFORM_UPPER} ${SOURCES} -o ${spirv}
+    # COMMAND ${CMC} -march=${CPU} ${KERNEL}.spv -o ${KERNEL}.bin
+    COMMAND ${CMC} -march=${DEVICE} -I ${RT_L0_PATH} ${KERNEL_FILE} -o ${KERNEL}.bin  
+    )
+  install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${INSTALL_DIR})
+  install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${DEBUG_DIR})
+endforeach()
 
-add_custom_command(
-  OUTPUT ${KERNEL}.bin
-  # COMMAND ${CMC} -emit-spirv -march=${HW_PLATFORM_UPPER} ${SOURCES} -o ${spirv}
-  # COMMAND ${CMC} -march=${CPU} ${KERNEL}.spv -o ${KERNEL}.bin
-  COMMAND ${CMC} -march=${CPU} -I ${RT_L0_PATH} ${KERNEL_SRC} -o ${KERNEL}.bin  
-)
+# message("KERNEL_LIST: ${KERNEL_LIST}")
+# message(FATAL_ERROR)
+    
+# set(KERNEL "sgemm_genx")
+# add_custom_command(
+#   OUTPUT ${KERNEL}.bin
+#   # COMMAND ${CMC} -emit-spirv -march=${HW_PLATFORM_UPPER} ${SOURCES} -o ${spirv}
+#   # COMMAND ${CMC} -march=${CPU} ${KERNEL}.spv -o ${KERNEL}.bin
+#   COMMAND ${CMC} -march=${CPU} -I ${RT_L0_PATH} ${CM_KERNEL_DIR}/sgemm_genx.cpp -o ${KERNEL}.bin  
+#   COMMENT 
+# )
+# install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${INSTALL_DIR})
+# install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${DEBUG_DIR})
 
 # file(COPY ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${DEBUG_DIR})
-install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${INSTALL_DIR})
-install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${DEBUG_DIR})
-
-add_executable(${APP} ${RTL0_SRC} ${KERNEL}.bin )
-
-target_compile_definitions(
-  ${APP} PRIVATE 
-  BINNAME="${KERNEL}.bin" 
-  BINDIR="None" L0 CM_COMPILE_OFFLINE
-)
-
+add_executable(${APP} ${RTL0_SRC} ${KERNEL_LIST})
 target_include_directories(
   ${APP} PRIVATE 
   $ENV{CSDK_IGC}/runtime/level_zero/include 
   $ENV{CSDK_IGC}/usr/include 
   $ENV{CSDK_IGC}/compiler/include
+  $ENV{CSDK_IGC}/compiler/bin
 )
-
 target_link_libraries(${APP} ${CMAKE_DL_LIBS} ${LIB_LEVEL0})
-
 set_property(TARGET ${APP} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-# --------------------------------------------- Pybind11 support
+# --------------------------------------------- Pybind11 testbed
 # find_package(Python 3.11 COMPONENTS Interpreter Development REQUIRED)
 set(PYBIND11 ${CMAKE_SOURCE_DIR}/3rdparty/pybind11)
 set(PYBIND11_JSON ${CMAKE_SOURCE_DIR}/3rdparty/pybind11_json)
@@ -99,7 +106,7 @@ add_subdirectory(${PYBIND11})
 add_definitions(-Dssize_t=SSIZE_T)
 set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=SSIZE_T)
 
-set(ZBENCH_SRC zbench.cpp)
+set(ZBENCH_SRC zbench.cpp dev_test.cpp)
 pybind11_add_module(zbench ${ZBENCH_SRC})
 target_link_libraries(zbench PRIVATE nlohmann_json::nlohmann_json ${CMAKE_DL_LIBS})
 # ---------------------------------------------
