@@ -300,8 +300,6 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
   L0_SAFE_CALL(zeKernelCreate(hModule, &kernelDesc, &hKernel));
 
   // Prepare matrix datas
-#define TEST_GEMM 1
-#if TEST_GEMM
   MType *matrixA = (MType *)malloc(M * K * sizeof(MType));
   if (matrixA == 0) {
     printf("Memory A allocation error");
@@ -363,24 +361,8 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
   WriteOut(mA, M, K, "mA.csv");
   prepMatrix(matrixB, mB, K, N, 1); // mB format: [K/16][N/8][8K][8N][2K]
   WriteOut(mB, K, N, "mB.csv"); 
-#else
-  constexpr unsigned width = 4096;
-  int hBufA[width];
-  int hBufB[width];
-  int hBufC[width], goldBufC[width];
-  size_t bufsize = width * sizeof(int);
 
-  for (size_t i = 0; i < width; ++i) {
-    hBufA[i] = i + 1;
-    hBufB[i] = 2 * (width + i + 1);
-    goldBufC[i] = hBufA[i] + hBufB[i];
-    hBufC[i] = -1;
-  }
-  
 
-#endif
-
-#if TEST_GEMM
   // allocate l0 buffers
   ze_device_mem_alloc_desc_t deviceMemDesc = {
       ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr,
@@ -427,11 +409,11 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
 
   // set group size
   uint32_t g_size_x = 1, g_size_y = 1;
-  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ g_size_x, /*y*/ g_size_y, /*z*/ 1));
+  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ 4, /*y*/ 4, /*z*/ 1));
 
   // set grid size
   uint32_t width_x = 4, width_y = 4;
-  ze_group_count_t groupCount = {width_x, width_y, 1};
+  ze_group_count_t groupCount = {1, 1, 1};
 
   // launch
   L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, nullptr, 0, nullptr));
@@ -470,69 +452,6 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
 
   fprintf(stderr, "-------TEST PASS--------");
   return result;
-
-#else
-  // allocate l0 buffers
-  ze_device_mem_alloc_desc_t deviceMemDesc = {
-      ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr,
-      0,
-      0
-  };
-
-  void *dBufA = nullptr;
-  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize, 64, hDevice, &dBufA));
-  void *dBufB = nullptr;
-  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize, 64, hDevice, &dBufB));
-  void *dBufC = nullptr;
-  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize, 64, hDevice, &dBufC));
-
-  // copy buffers to device
-  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufA, hBufA, bufsize, nullptr, 0, nullptr));
-  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufB, hBufB, bufsize, nullptr, 0, nullptr));
-  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufC, hBufC, bufsize, nullptr, 0, nullptr));
-  L0_SAFE_CALL(zeCommandListAppendBarrier(hCommandList, nullptr, 0, nullptr));
-
-  // set kernel arguments
-  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 0, sizeof(dBufA), &dBufA));
-  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 1, sizeof(dBufB), &dBufB));
-  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 2, sizeof(dBufC), &dBufC));
-
-  // set group size
-  uint32_t group_size = 8;
-  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ group_size, /*y*/ 1, /*z*/ 1));
-
-  // set grid size
-  ze_group_count_t groupCount = {width/group_size/32, 1, 1};
-
-
-  // launch
-  L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, nullptr, 0, nullptr));
-
-  L0_SAFE_CALL(zeCommandListAppendBarrier(hCommandList, nullptr, 0, nullptr));
-  // copy result to host
-  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, hBufC, dBufC, bufsize, nullptr, 0, nullptr));
-
-  // dispatch & wait
-  L0_SAFE_CALL(zeCommandListClose(hCommandList));
-  L0_SAFE_CALL(zeCommandQueueExecuteCommandLists(hCommandQueue, 1, &hCommandList, nullptr));
-  L0_SAFE_CALL(zeCommandQueueSynchronize(hCommandQueue, std::numeric_limits<uint32_t>::max()))
-
-  L0_SAFE_CALL(zeMemFree(hContext, dBufA));
-  L0_SAFE_CALL(zeMemFree(hContext, dBufB));
-  L0_SAFE_CALL(zeMemFree(hContext, dBufC));
-
-  bool fail = false;
-  for (size_t i = 0; i < 128*128; ++i) {
-    fprintf(stderr, "i: %d  gold= %d comp=%d  %s\n", int(i), goldBufC[i],
-            hBufC[i], (hBufC[i] != goldBufC[i] ? "FAIL" : ""));
-    fail |= hBufC[i] != goldBufC[i];
-  }
-
-  fprintf(stderr, fail ? "FAIL\n" : "PASS\n");
-  return fail;
-#endif
-
-
 }
 
 int run_sgemm(int m, int niterations, int gx, int gy, 

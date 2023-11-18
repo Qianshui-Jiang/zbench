@@ -37,8 +37,8 @@ _GENX_ inline void myDPAS(matrix_ref<HALF, 4, 16> matA,
       result.format<FLOAT>(), matB.format<U32>(), matA.format<U32>());
 }
 
-// A matrix format - [K/16][M][16K]
-// B matrix format - [K/16][N/8][8K][8N][2K]
+// A matrix format - [K/16][M][16K]  | 8x128x16
+// B matrix format - [K/16][N/8][8K][8N][2K] | 8x16x8x8x2
 // C matrix format - [N/16][M][16N]
 extern "C" _GENX_MAIN_ void
 bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
