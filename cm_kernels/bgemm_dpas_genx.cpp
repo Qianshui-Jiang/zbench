@@ -41,17 +41,29 @@ _GENX_ inline void myDPAS(matrix_ref<HALF, 4, 16> matA,
 // B matrix format - [K/16][N/8][8K][8N][2K]
 // C matrix format - [N/16][M][16N]
 extern "C" _GENX_MAIN_ void
-PVCBGEMM(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
-         SurfaceIndex INMTXb[[type("buffer_t bfloat")]], //
-         SurfaceIndex OUTMTX[[type("buffer_t bfloat")]], //
-         int M,                                          //
-         int K,                                          //
-         int N,                                          //
-         int repeat_count,                               //
-         int MatAReadIncSizeByte,                        //
-         int MatBReadIncSizeByte,                        //
-         int StepSizeForSecondReadByte,                  //
-         int groupHeight) {
+bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
+            SurfaceIndex INMTXb[[type("buffer_t bfloat")]], //
+            SurfaceIndex OUTMTX[[type("buffer_t bfloat")]], //
+            int M,                                          //
+            int K,                                          //
+            int N,                                          //
+            int repeat_count,                               //
+            int MatAReadIncSizeByte,                        //
+            int MatBReadIncSizeByte,                        //
+            int StepSizeForSecondReadByte,                  //
+            int groupHeight) {
+
+    printf("Group id:   %d\n", cm_group_id(0));
+    printf("Local size: %d\n", cm_local_size(0));
+    printf("Local id:   %d\n", cm_local_id(0));
+
+    printf("M = %d, N = %d, K = %d\n", M, N, K);
+    printf("repeat_count:   %d\n", repeat_count);
+    printf("MatAReadIncSizeByte: %d\n", MatAReadIncSizeByte);
+    printf("MatBReadIncSizeByte:   %d\n", MatBReadIncSizeByte);
+    printf("StepSizeForSecondReadByte:   %d\n", StepSizeForSecondReadByte);
+    printf("groupHeight: %d\n", groupHeight);
+
     matrix<FLOAT, 8, 8> result11; //first number indicates row of 8x8 inside 32x32 output tile. Second number is column of 8x8 inside 32x32.
     matrix<FLOAT, 8, 8> result12; //since there are 16 8x8 tiles inside 32x32, 16 sets of these accum are required.
     matrix<FLOAT, 8, 8> result13;
@@ -338,7 +350,6 @@ PVCBGEMM(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
       MatBReadIndexOffsetByte += -(MatBReadIncSizeByte * (K >> 4));
       gidY += groupHeight;
       WriteIndex += WriteIndexIncrement;
-
     } // Repeat loop
 }
 

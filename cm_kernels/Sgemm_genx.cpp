@@ -6,8 +6,8 @@
 
 #include "share.h"
 
-// Process 32x16 block of result matrix:
 
+// Process 32x16 block of result matrix:
 extern "C" _GENX_MAIN_ void sgemm_kernel (
                                 int m, int n, int k,
                                 int ib, int jb, int kb,
