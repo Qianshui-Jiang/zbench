@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.path.dirname(__file__) + "./build/Debug")
 
 import numpy as np
+np.random.seed(123)
 
 import zbench
 
@@ -23,6 +24,53 @@ def np_bf162np_float(arr):
 
 def setMatrix(m, n):
     pass
+    
+
+def test_bf16_passing():
+    m=128
+    n=128
+    k=128
+    m_A = np.random.uniform(0, 10, [m,k]).astype("float32") 
+    m_B = np.random.uniform(0, 10, [k,n]).astype("float32") 
+    ref_C = np.matmul(m_A, m_B)
+
+    m_A = np_float2np_bf16(m_A)
+    m_B = np_float2np_bf16(m_B)
+    
+
+    temp_res  = zbench.run_kernel(os.path.join(source_bin_path, "bgemm_dpas_genx.bin"), 
+                                  os.path.join(source_bin_path, "bgemm_dpas_genx.spv"), 
+                                 "bgemm_dpas",
+                                A=m_A, B=m_B, m=m, n=n, k=k, tx=4, ty=4, gx=1, gy=1)
+    temp_res = np.array(temp_res).reshape((m, n)).astype("uint16")
+    temp_res = np_bf162np_float(temp_res)
+    
+    print("temp_res:", temp_res[0])
+    print("ref_C:", ref_C[0])
+
+
+    
+def test_fp16_passing():
+    m=128
+    n=128
+    k=128
+    m_A = np.random.uniform(0, 10, [m,k]).astype("float16") 
+    m_B = np.random.uniform(0, 10, [k,n]).astype("float16") 
+
+
+    ref_C = np.matmul(m_A, m_B)
+    
+    temp_res  = zbench.run_kernel(os.path.join(source_bin_path, "bgemm_dpas_genx.bin"), 
+                                  os.path.join(source_bin_path, "bgemm_dpas_genx.spv"), 
+                                 "bgemm_dpas",
+                                A=m_A.view(np.uint16), B=m_B.view(np.uint16), m=m, n=n, k=k, tx=4, ty=4, gx=1, gy=1)
+    temp_res = np.array(temp_res).reshape((m, n)).astype("uint16")
+    
+    # print("m_A:", m_A[0])
+    print("temp_res:", np_bf162np_float(temp_res[0]))
+    # print("temp_res:", temp_res[0].view(np.float16))
+    print("temp_res:", ref_C[0].dtype) 
+    print("ref_C:", ref_C[0])
     
 
 if __name__ == "__main__":
@@ -46,42 +94,7 @@ if __name__ == "__main__":
     #                         bin_file= os.path.join(source_bin_path, "bgemm_dpas_genx.bin"), 
     #                         fn_name= "bgemm_dpas"
     #                         )
-
-    m=128
-    n=128
-    k=128
-    np.random.seed(123)
-    m_A = np.random.uniform(0, 10, [m,k]).astype("float32") 
-    m_B = np.random.uniform(0, 10, [k,n]).astype("float32") 
-    ref_C = np.matmul(m_A, m_B)
-
-    m_A = np_float2np_bf16(m_A)
-    m_B = np_float2np_bf16(m_B)
     
-    
-    # m_A = np.random.uniform(0, 10, [m,k]).astype("float16") 
-    # m_B = np.random.uniform(0, 10, [k,n]).astype("float16") 
-    
-    # print(np_bf162np_float(np_float2np_bf16(m_A)))
-    # print(m_B)
-    # exit()
-    # temp_res  = zbench.run_kernel(bin_file= os.path.join(source_bin_path, "bgemm_dpas_genx.bin"), 
-    #                             spirv_file =  os.path.join(source_bin_path, "bgemm_dpas_genx.spv"), 
-    #                             fn_name= "bgemm_dpas",
-    #                             )
-    
-    temp_res  = zbench.run_kernel(os.path.join(source_bin_path, "bgemm_dpas_genx.bin"), 
-                                  os.path.join(source_bin_path, "bgemm_dpas_genx.spv"), 
-                                 "bgemm_dpas",
-                                A=m_A, B=m_B, m=m, n=n, k=k, tx=4, ty=4, gx=1, gy=1)
-    temp_res = np.array(temp_res).reshape((m, n)).astype("uint16")
-    temp_res = np_bf162np_float(temp_res)
-    
-    print("m_A:", np_bf162np_float(m_A[0]))
-    print("temp_res:", temp_res[0])
-    # print("temp_res:", ref_C[0])
-    # print("temp_res:", temp_res[1])
-    # print("temp_res:", temp_res[2])
-    # print("temp_res:", temp_res[3])
-    # print("temp_res:", temp_res.astype('float16'))
+    # test_bf16_passing()
+    test_fp16_passing()
           

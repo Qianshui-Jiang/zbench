@@ -439,9 +439,9 @@ std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, con
   }
   std::memset(matrixC, 0, M * N * sizeof(MType));
 
-  // _calc_bgemm(matrixA, matrixB, matrixC, M, K, N, 
-  //             threadWidth,  threadHeight, groupWidth, groupHeight,
-  //             bin_file , fn_name);
+  _calc_bgemm(matrixA, matrixB, matrixC, M, K, N, 
+              threadWidth,  threadHeight, groupWidth, groupHeight,
+              bin_file , fn_name);
 
 #if 0
   MType *matrixC_ref = (MType *)malloc(M * N * sizeof(MType));
@@ -472,9 +472,9 @@ std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, con
 #endif
   
   std::vector<MType> result(M * K);
-  memcpy(&result[0], matrixA, M*N*sizeof(MType));
-
+  memcpy(&result[0], matrixC, M*N*sizeof(MType));
   free(matrixC);
+
   return result;
   
 }
@@ -881,7 +881,7 @@ int run_sgemm(int m, int niterations, int gx, int gy,
     return pass ? 0 : 1;
 }
 
-
+ 
 // int main(int argc, char** argv)
 // {
 //     int m = GEMM_BLOCK;

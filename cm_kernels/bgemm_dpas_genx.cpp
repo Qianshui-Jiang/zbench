@@ -33,7 +33,7 @@ const int init_prefetchOffset[8] = { 0,0,0,0,0,0,0,0 };
 _GENX_ inline void myDPAS(matrix_ref<HALF, 4, 16> matA,
                           matrix_ref<HALF, 8, 16> matB,
                           matrix_ref<FLOAT, 8, 8> result) {
-  result = cm_dpasw<CM_PRECISION_BF, CM_PRECISION_BF, 8, 8>(
+  result = cm_dpasw<CM_PRECISION_HF, CM_PRECISION_HF, 8, 8>(
       result.format<FLOAT>(), matB.format<U32>(), matA.format<U32>());
 }
 
@@ -41,9 +41,9 @@ _GENX_ inline void myDPAS(matrix_ref<HALF, 4, 16> matA,
 // B matrix format - [K/16][N/8][8K][8N][2K] | 8x16x8x8x2
 // C matrix format - [N/16][M][16N]
 extern "C" _GENX_MAIN_ void
-bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
-            SurfaceIndex INMTXb[[type("buffer_t bfloat")]], //
-            SurfaceIndex OUTMTX[[type("buffer_t bfloat")]], //
+bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t ")]], //
+            SurfaceIndex INMTXb[[type("buffer_t")]], //
+            SurfaceIndex OUTMTX[[type("buffer_t")]], //
             int M,                                          //
             int K,                                          //
             int N,                                          //
