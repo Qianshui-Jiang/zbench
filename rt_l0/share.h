@@ -72,7 +72,6 @@ inline double get_cpu_freq() {
 #define GEMM_BLOCK 1024
 
 // ------------------PVC GEMM------------------------------
-
 #define SLMMTA
 
 #define DPASW 1

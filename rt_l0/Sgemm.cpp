@@ -8,26 +8,9 @@
 #define TRUE  1
 #endif
 
-typedef unsigned int uint;
-typedef unsigned short ushort;
-typedef unsigned char uchar;
-typedef unsigned short MType;
+
 
 int counter = 0;
-
-MType from_fp32(float f) {
-  uint *pf = (uint *)&f;
-  return (MType)((*pf) >> 16);
-}
-float to_fp32(MType val) {
-  float f;
-
-  MType *temp = (MType *)&f;
-  temp[0] = 0;
-  temp[1] = val;
-  return f;
-}
-
 
 void WriteOut(void *p, int h, int w, char const *filename) {
   FILE *fp = fopen(filename, "w");
@@ -37,7 +20,7 @@ void WriteOut(void *p, int h, int w, char const *filename) {
 
   in = (MType *)p;
   temp = (MType *)&f;
-  temp[0] = 0;
+  temp[0] = 0;  // convert to FP32
 
   if (fp != 0) {
     for (j = 0; j < h; j++) {
@@ -203,10 +186,339 @@ void multipyMatrix(MType *MA, MType *MB, MType *MC, int M, int K, int N) {
 }
 
 
-int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
+int _calc_bgemm(MType *matrixA, MType *matrixB, MType *matrixC, int M, int K, int N, 
+                int threadWidth, int threadHeight,
+                int groupWidth, int groupHeight,
+                const char* bin_file =  "bgemm_dpas_genx.bin", 
+                const char* fn_name = "bgemm_dpas"){
+
+  uint threadNum = threadWidth * threadHeight;
+  uint TotalthreadNum = threadNum * groupWidth * groupHeight;
+  uint repeat_count = TotalthreadNum / HW_THREAD_COUNT;
+  if (TotalthreadNum != repeat_count * HW_THREAD_COUNT) {
+    printf("error: the total thread space is not multiple of HW threads "
+           "avialable\n");
+    exit(-1);
+  }
+  if (uint(groupHeight) != (groupHeight / repeat_count) * repeat_count) {
+    printf("error: group height is not multiple of repeat count:%d,%d,%d\n",
+           groupHeight, repeat_count, TotalthreadNum);
+    exit(-1);
+  }
+  // recompute the group height based on repetition that will be done inside the
+  // kernel.
+  groupHeight /= repeat_count;
+  TotalthreadNum = threadNum * groupWidth * groupHeight;
+
+  constexpr int GRIDDIM = 2;
+  size_t localsize[GRIDDIM] = {(size_t)threadWidth, (size_t)threadHeight};
+  size_t globalsize[GRIDDIM] = {(size_t)groupWidth * localsize[0],
+                                (size_t)groupHeight * localsize[1]};
+  
+  fprintf(stderr, "localsize= %d %d\n", (int)localsize[0], (int)localsize[1]);
+  fprintf(stderr, "globalsize= %d %d\n", (int)globalsize[0],
+          (int)globalsize[1]);
+  fprintf(stderr, "thread_space= %d %d\n", threadWidth, threadHeight);
+  fprintf(stderr, "group_space= %d %d\n", groupWidth, groupHeight);
+  fprintf(stderr, "repeat_count= %d\n", repeat_count);
+  fprintf(stderr, "M= %d\n", M);
+  fprintf(stderr, "K= %d\n", K);
+  fprintf(stderr, "N= %d\n", N);
+
+  
+  L0_SAFE_CALL(zeInit(ZE_INIT_FLAG_GPU_ONLY));
+
+  // Discover all the driver instances
+  uint32_t driverCount = 0;
+  L0_SAFE_CALL(zeDriverGet(&driverCount, nullptr));
+  fprintf(stderr, "driverCount= %d\n", (int)driverCount);
+
+  ze_driver_handle_t *allDrivers =
+      (ze_driver_handle_t *)malloc(driverCount * sizeof(ze_driver_handle_t));
+  L0_SAFE_CALL(zeDriverGet(&driverCount, allDrivers));
+
+  // Find a driver instance with a GPU device
+  ze_driver_handle_t hDriver = nullptr;
+  ze_device_handle_t hDevice = nullptr;
+  for (uint32_t i = 0; i < driverCount; ++i) {
+    uint32_t deviceCount = 0;
+    hDriver = allDrivers[i];
+    L0_SAFE_CALL(zeDeviceGet(hDriver, &deviceCount, nullptr));
+    fprintf(stderr, "driver= %d: deviceCount= %d\n", (int)i, (int)deviceCount);
+    ze_device_handle_t *allDevices =
+        (ze_device_handle_t *)malloc(deviceCount * sizeof(ze_device_handle_t));
+    L0_SAFE_CALL(zeDeviceGet(hDriver, &deviceCount, allDevices));
+    for (uint32_t d = 0; d < deviceCount; ++d) {
+      ze_device_properties_t device_properties;
+      device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+      device_properties.pNext = nullptr;
+      L0_SAFE_CALL(zeDeviceGetProperties(allDevices[d], &device_properties));
+      if (ZE_DEVICE_TYPE_GPU == device_properties.type) {
+        hDevice = allDevices[d];
+        break;
+      }
+    }
+    free(allDevices);
+    if (nullptr != hDevice) {
+      break;
+    }
+  }
+  free(allDrivers);
+  assert(hDriver);
+  assert(hDevice);
+
+  // Create context
+  ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
+  ze_context_handle_t hContext = nullptr;
+  L0_SAFE_CALL(zeContextCreate(hDriver, &contextDesc, &hContext));
+  assert(hContext);
+
+  // Create a command queue
+  ze_command_queue_desc_t commandQueueDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, 0, 0, 0,
+      ZE_COMMAND_QUEUE_MODE_DEFAULT, ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+  ze_command_queue_handle_t hCommandQueue;
+  L0_SAFE_CALL(zeCommandQueueCreate(hContext, hDevice, &commandQueueDesc, &hCommandQueue));
+
+  // Create a command list
+  ze_command_list_desc_t commandListDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC, 0, 0, 0};
+  ze_command_list_handle_t hCommandList;
+  L0_SAFE_CALL(zeCommandListCreate(hContext, hDevice, &commandListDesc, &hCommandList));
+
+
+  uint8_t *kernel_bin{nullptr};
+  size_t kernel_sz{0};
+  {
+    FILE *fp = fopen(bin_file, "rb");
+    assert(fp);
+
+    fseek(fp, 0, SEEK_END);
+    kernel_sz = ftell(fp);
+    rewind(fp);
+
+    kernel_bin = new uint8_t[kernel_sz];
+    fread(kernel_bin, 1, kernel_sz, fp);
+    fclose(fp);
+  }
+  fprintf(stderr, "kernel_sz= %g KB\n", kernel_sz / 1024.0);
+
+  ze_module_desc_t moduleDesc = {
+    ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr,
+    ZE_MODULE_FORMAT_NATIVE, //
+    kernel_sz,  //
+    kernel_bin, //
+    "-cmc",
+    nullptr
+  };
+  ze_module_handle_t hModule;
+  L0_SAFE_CALL(zeModuleCreate(hContext, hDevice, &moduleDesc, &hModule, nullptr));
+
+  ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, 0, fn_name};
+  ze_kernel_handle_t hKernel;
+  L0_SAFE_CALL(zeKernelCreate(hModule, &kernelDesc, &hKernel));
+
+  // Prepare matrix datas
+  MType *mA = (MType *)malloc(M * K * sizeof(MType));
+  if (mA == 0) {
+    printf("Memory A allocation error");
+    return -1;
+  }
+  MType *mB = (MType *)malloc(K * N * sizeof(MType));
+  if (mB == 0) {
+    free(mA);
+    printf("Memory B allocation error");
+    return -1;
+  }
+  prepMatrix(matrixA, mA, M, K, 0); // A format: [K/16][M][16K]
+  WriteOut(mA, M, K, "mA_bind.csv");
+  prepMatrix(matrixB, mB, K, N, 1); // mB format: [K/16][N/8][8K][8N][2K]
+  WriteOut(mB, K, N, "mB_bind.csv"); 
+
+
+  // allocate l0 buffers
+  ze_device_mem_alloc_desc_t deviceMemDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+  size_t bufsize_A = M * K * sizeof(MType);
+  size_t bufsize_B = K * N * sizeof(MType);
+  size_t bufsize_C = M * N * sizeof(MType);
+
+  void *dBufA = nullptr;
+  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize_A, 64, hDevice, &dBufA));
+  void *dBufB = nullptr;
+  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize_B, 64, hDevice, &dBufB));
+  void *dBufC = nullptr;
+  L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize_C, 64, hDevice, &dBufC));
+
+  // copy buffers to device
+  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufA, mA, bufsize_A, nullptr, 0, nullptr));
+  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufB, mB, bufsize_B, nullptr, 0, nullptr));
+  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufC, matrixC, bufsize_C, nullptr, 0, nullptr));
+  L0_SAFE_CALL(zeCommandListAppendBarrier(hCommandList, nullptr, 0, nullptr));
+
+  // set kernel arguments
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 0, sizeof(dBufA), &dBufA));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 1, sizeof(dBufB), &dBufB));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 2, sizeof(dBufC), &dBufC));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 3, sizeof(int), &M));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 4, sizeof(int), &N));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 5, sizeof(int), &K));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 6, sizeof(int), &repeat_count));
+
+
+  int MatAReadIncSizeByte = M * CONTIGUOUS_K_SIZE * SIZE_OF_BF16_BYTE;
+  int MatBReadIncSizeByte = N * CONTIGUOUS_K_SIZE * SIZE_OF_BF16_BYTE;
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 7, sizeof(int), &MatAReadIncSizeByte));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 8, sizeof(int), &MatBReadIncSizeByte));
+  int StepSizeForSecondReadByte = (4 * CONTIGUOUS_K_SIZE * SIZE_OF_BF16_BYTE);
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 9, sizeof(int), &StepSizeForSecondReadByte));
+  L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 10, sizeof(int), &groupHeight));
+
+
+  fprintf(stderr, "Execute kernel .. \n");
+
+  // set group size
+  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ threadWidth, /*y*/ threadHeight, /*z*/ 1));
+
+  // set grid size
+  ze_group_count_t groupCount = {groupWidth, groupHeight, 1};
+
+  // launch
+  L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, nullptr, 0, nullptr));
+
+  L0_SAFE_CALL(zeCommandListAppendBarrier(hCommandList, nullptr, 0, nullptr));
+  // copy result to host
+  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, matrixC, dBufC, bufsize_C, nullptr, 0, nullptr));
+
+  // dispatch & wait
+  L0_SAFE_CALL(zeCommandListClose(hCommandList));
+  L0_SAFE_CALL(zeCommandQueueExecuteCommandLists(hCommandQueue, 1, &hCommandList, nullptr));
+  L0_SAFE_CALL(zeCommandQueueSynchronize(hCommandQueue, std::numeric_limits<uint32_t>::max()))
+
+  L0_SAFE_CALL(zeMemFree(hContext, dBufA));
+  L0_SAFE_CALL(zeMemFree(hContext, dBufB));
+  L0_SAFE_CALL(zeMemFree(hContext, dBufC));
+
+  delete kernel_bin;
+  return 0;
+}
+
+
+
+std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, const char* fn_name,
+              const py::args& args, const py::kwargs& kwargs){
+// Parse the input
+  std::vector<int> v_argc;
+  std::vector<MType *> v_argv;
+  if (kwargs) {
+    for(auto item: kwargs){
+        std::cout << "input key: "<< item.first <<  " , type: "\
+        << py::type::of(item.second).str() << std::endl; // <class 'numpy.ndarray'>
+      if(py::type::of(item.second) == py::type::of(py::int_())){
+        auto arg_in = py::int_(kwargs[item.first]);
+        v_argc.push_back(arg_in);
+      }
+      if(py::type::of(item.second) == py::type::of(py::array())){
+        auto buf_in = py::array_t<MType, py::array::c_style | py::array::forcecast>(kwargs[item.first]);
+        v_argv.push_back(const_cast<MType*>(buf_in.data()));
+      }
+    }
+  }
+// ----------------A, B, m, k, n, tx, ty, gx, gy------------------
+  int M = v_argc[0],  K=v_argc[1], N=v_argc[2];
+  int threadWidth=v_argc[3], threadHeight=v_argc[4];
+  int groupWidth=v_argc[5], groupHeight=v_argc[6];
+
+  MType *matrixA = v_argv[0];
+  MType *matrixB = v_argv[1];
+
+  MType *matrixC = (MType *)malloc(M * N * sizeof(MType));
+  if (matrixC == 0) {
+    free(matrixA);
+    free(matrixB);
+    printf("Memory C allocation error");
+  }
+  std::memset(matrixC, 0, M * N * sizeof(MType));
+
+  // _calc_bgemm(matrixA, matrixB, matrixC, M, K, N, 
+  //             threadWidth,  threadHeight, groupWidth, groupHeight,
+  //             bin_file , fn_name);
+
+#if 0
+  MType *matrixC_ref = (MType *)malloc(M * N * sizeof(MType));
+  if (matrixC_ref == 0) {
+    free(matrixA);
+    free(matrixB);
+    free(matrixC);
+    printf("Memory C allocation error");
+  }
+
+  WriteOut(matrixA, M, K, "matrixA_bind.csv");
+  WriteOut(matrixB, K, N, "matrixB_bind.csv");
+
+  // Get gold result
+  std::memset(matrixC_ref, 0, M * N * sizeof(MType));
+  multipyMatrix(matrixA, matrixB, matrixC_ref, M, K, N);
+  WriteOut(matrixC_ref, M, N, "matrixC_ref.csv");
+  WriteOut(matrixC, M, N, "matrixC.csv");
+
+ // validate
+  int match = FloatCompare(matrixC, matrixC_ref, M * N, M, N);
+  if (!match) {
+    fprintf(stderr, "\n*** TEST PASSED ***\n");
+  } else {
+    fprintf(stderr, "\n*** TEST FAILED ***\n");
+  }
+  free(matrixC_ref);
+#endif
+  
+  std::vector<MType> result(M * K);
+  memcpy(&result[0], matrixA, M*N*sizeof(MType));
+
+  free(matrixC);
+  return result;
+  
+}
+
+int run_bgemm(int M, int K, int N, 
+            int threadWidth, int threadHeight,
             int groupWidth, int groupHeight,
             const char* bin_file =  "bgemm_dpas_genx.bin", 
             const char* fn_name = "bgemm_dpas"){
+
+  uint threadNum = threadWidth * threadHeight;
+  uint TotalthreadNum = threadNum * groupWidth * groupHeight;
+  uint repeat_count = TotalthreadNum / HW_THREAD_COUNT;
+  if (TotalthreadNum != repeat_count * HW_THREAD_COUNT) {
+    printf("error: the total thread space is not multiple of HW threads "
+           "avialable\n");
+    exit(-1);
+  }
+  if (uint(groupHeight) != (groupHeight / repeat_count) * repeat_count) {
+    printf("error: group height is not multiple of repeat count:%d,%d,%d\n",
+           groupHeight, repeat_count, TotalthreadNum);
+    exit(-1);
+  }
+  // recompute the group height based on repetition that will be done inside the
+  // kernel.
+  groupHeight /= repeat_count;
+  TotalthreadNum = threadNum * groupWidth * groupHeight;
+
+  constexpr int GRIDDIM = 2;
+  size_t localsize[GRIDDIM] = {(size_t)threadWidth, (size_t)threadHeight};
+  size_t globalsize[GRIDDIM] = {(size_t)groupWidth * localsize[0],
+                                (size_t)groupHeight * localsize[1]};
+  
+  fprintf(stderr, "localsize= %d %d\n", (int)localsize[0], (int)localsize[1]);
+  fprintf(stderr, "globalsize= %d %d\n", (int)globalsize[0],
+          (int)globalsize[1]);
+  fprintf(stderr, "thread_space= %d %d\n", threadWidth, threadHeight);
+  fprintf(stderr, "group_space= %d %d\n", groupWidth, groupHeight);
+  fprintf(stderr, "repeat_count= %d\n", repeat_count);
+  fprintf(stderr, "M= %d\n", M);
+  fprintf(stderr, "K= %d\n", K);
+  fprintf(stderr, "N= %d\n", N);
+
+
   L0_SAFE_CALL(zeInit(ZE_INIT_FLAG_GPU_ONLY));
 
   // Discover all the driver instances
@@ -364,11 +676,7 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
 
 
   // allocate l0 buffers
-  ze_device_mem_alloc_desc_t deviceMemDesc = {
-      ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr,
-      0,
-      0
-  };
+  ze_device_mem_alloc_desc_t deviceMemDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
   size_t bufsize_A = M * K * sizeof(MType);
   size_t bufsize_B = K * N * sizeof(MType);
   size_t bufsize_C = M * N * sizeof(MType);
@@ -390,8 +698,6 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 0, sizeof(dBufA), &dBufA));
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 1, sizeof(dBufB), &dBufB));
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 2, sizeof(dBufC), &dBufC));
-
-  int repeat_count = 1;
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 3, sizeof(int), &M));
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 4, sizeof(int), &N));
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 5, sizeof(int), &K));
@@ -407,13 +713,13 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 10, sizeof(int), &groupHeight));
 
 
+  fprintf(stderr, "Execute kernel .. \n");
+
   // set group size
-  uint32_t g_size_x = 1, g_size_y = 1;
-  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ 4, /*y*/ 4, /*z*/ 1));
+  L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ threadWidth, /*y*/ threadHeight, /*z*/ 1));
 
   // set grid size
-  uint32_t width_x = 4, width_y = 4;
-  ze_group_count_t groupCount = {1, 1, 1};
+  ze_group_count_t groupCount = {groupWidth, groupHeight, 1};
 
   // launch
   L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, nullptr, 0, nullptr));
@@ -443,14 +749,13 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
     fprintf(stderr, "\n*** TEST FAILED ***\n");
   }
 
-  delete[] kernel_bin;
+  delete kernel_bin;
 
   free(matrixC_ref);
   free(matrixC);
   free(matrixB);
   free(matrixA);
 
-  fprintf(stderr, "-------TEST PASS--------");
   return result;
 }
 
@@ -462,7 +767,7 @@ int run_sgemm(int m, int niterations, int gx, int gy,
     float alpha=+1.0, beta=+1.0;
 
     // Each thread computes 32x16 block of result matrix
-    unsigned nthreadsY    = GEMM_BLOCK/32;
+    unsigned nthreadsY    = GEMM_BLOCK/32;  // GEMM_BLOCK = 1024
     unsigned nthreadsX    = GEMM_BLOCK/16;
 
     int n=m, k=m;
@@ -507,11 +812,11 @@ int run_sgemm(int m, int niterations, int gx, int gy,
     auto hBImage = createImage2D(hContext, hDevice, hCommandList, fmt, B.l_dim(), B.n_row(), &B(0,0));
     auto hCImage = createImage2D(hContext, hDevice, hCommandList, fmt, C.l_dim(), m, &C(0,0));
 
-    ze_group_count_t launchArgs = {nthreadsX/gx, nthreadsY/gy, 1};
+    ze_group_count_t launchArgs = {nthreadsX/gx, nthreadsY/gy, 1}; // setup how much threads used in a group
 
     auto hKernel = createKernel(hContext, hDevice, bin_file, fn_name);
 
-    L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, gx, gy, 1));
+    L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, gx, gy, 1)); // setup how much group used
 
     ze_event_handle_t hEvent = createEvent(hContext, hDevice);
     double thost = 0.0f;

@@ -52,7 +52,7 @@ bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
             int MatBReadIncSizeByte,                        //
             int StepSizeForSecondReadByte,                  //
             int groupHeight) {
-
+#if 0
     printf("Group id:   %d\n", cm_group_id(0));
     printf("Local size: %d\n", cm_local_size(0));
     printf("Local id:   %d\n", cm_local_id(0));
@@ -63,6 +63,7 @@ bgemm_dpas(SurfaceIndex INMTXa[[type("buffer_t bfloat")]], //
     printf("MatBReadIncSizeByte:   %d\n", MatBReadIncSizeByte);
     printf("StepSizeForSecondReadByte:   %d\n", StepSizeForSecondReadByte);
     printf("groupHeight: %d\n", groupHeight);
+#endif
 
     matrix<FLOAT, 8, 8> result11; //first number indicates row of 8x8 inside 32x32 output tile. Second number is column of 8x8 inside 32x32.
     matrix<FLOAT, 8, 8> result12; //since there are 16 8x8 tiles inside 32x32, 16 sets of these accum are required.

@@ -38,4 +38,11 @@ PYBIND11_MODULE(zbench, m)
           py::arg("fn_name") = "bgemm_dpas"
           );
 
+    // code for testing the numpy array binding
+    m.def("run_kernel", &run_kernel, "A function which adds two numbers", 
+          py::arg("bin_file") = "bgemm_dpas_genx.bin", 
+          py::arg("spirv_file") = "bgemm_dpas_genx.spv", 
+          py::arg("fn_name") = "bgemm_dpas"
+          );
+
 }
