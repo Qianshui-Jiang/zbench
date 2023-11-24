@@ -164,7 +164,7 @@ void multipyMatrix(MType *MA, MType *MB, MType *MC, int M, int K, int N) {
   int i = 0;
   for (int m = 0; m < M; ++m)
     for (int n = 0; n < N; ++n)
-      temp[i++] = 0.0;
+      temp[i++] = 0.0;  // init
 
   for (int m = 0; m < M; ++m)
     for (int n = 0; n < N; ++n)
@@ -173,20 +173,20 @@ void multipyMatrix(MType *MA, MType *MB, MType *MC, int M, int K, int N) {
         pf2[0] = 0;
         pf1[1] = *(MA + m * K + k);
         pf2[1] = *(MB + k * N + n);
-        *(temp + m * N + n) += f1 * f2;
+        *(temp + m * N + n) += f1 * f2; // fp32*fp32
       }
 
   for (int m = 0; m < M; ++m)
     for (int n = 0; n < N; ++n) {
       p++;
-      *c++ = *p++; // assume little endian.
+      *c++ = *p++; // assume little endian. to bf16
     }
 
   free(temp);
 }
 
 
-int _calc_bgemm(MType *matrixA, MType *matrixB, MType *matrixC, int M, int K, int N, 
+int _calc_bgemm(MType *mA, MType *mB, MType *matrixC, int M, int K, int N, 
                 int threadWidth, int threadHeight,
                 int groupWidth, int groupHeight,
                 const char* bin_file =  "bgemm_dpas_genx.bin", 
@@ -318,22 +318,6 @@ int _calc_bgemm(MType *matrixA, MType *matrixB, MType *matrixC, int M, int K, in
   ze_kernel_handle_t hKernel;
   L0_SAFE_CALL(zeKernelCreate(hModule, &kernelDesc, &hKernel));
 
-  // Prepare matrix datas
-  MType *mA = (MType *)malloc(M * K * sizeof(MType));
-  if (mA == 0) {
-    printf("Memory A allocation error");
-    return -1;
-  }
-  MType *mB = (MType *)malloc(K * N * sizeof(MType));
-  if (mB == 0) {
-    free(mA);
-    printf("Memory B allocation error");
-    return -1;
-  }
-  prepMatrix(matrixA, mA, M, K, 0); // A format: [K/16][M][16K]
-  WriteOut(mA, M, K, "mA_bind.csv");
-  prepMatrix(matrixB, mB, K, N, 1); // mB format: [K/16][N/8][8K][8N][2K]
-  WriteOut(mB, K, N, "mB_bind.csv"); 
 
 
   // allocate l0 buffers
@@ -439,7 +423,23 @@ std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, con
   }
   std::memset(matrixC, 0, M * N * sizeof(MType));
 
-  _calc_bgemm(matrixA, matrixB, matrixC, M, K, N, 
+  // Packing matrix datas
+  MType *mA = (MType *)malloc(M * K * sizeof(MType));
+  if (mA == 0) {
+    printf("Memory A allocation error");
+  }
+  MType *mB = (MType *)malloc(K * N * sizeof(MType));
+  if (mB == 0) {
+    free(mA);
+    printf("Memory B allocation error");
+  }
+
+  prepMatrix(matrixA, mA, M, K, 0); // A format: [K/16][M][16K]
+  WriteOut(mA, M, K, "mA_bind.csv");
+  prepMatrix(matrixB, mB, K, N, 1); // mB format: [K/16][N/8][8K][8N][2K]
+  WriteOut(mB, K, N, "mB_bind.csv"); 
+
+  _calc_bgemm(mA, mB, matrixC, M, K, N, 
               threadWidth,  threadHeight, groupWidth, groupHeight,
               bin_file , fn_name);
 
