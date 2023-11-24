@@ -4,3 +4,8 @@ ShaderGen
 __pycache__
 *.csv
 *.log
+
+cpp_ext_test/cpp/__pycache__
+cpp_ext_test/cpp/build
+cpp_ext_test/cpp/dist
+cpp_ext_test/cpp/lltm_cpp.egg-info

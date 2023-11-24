@@ -56,10 +56,13 @@ foreach(KERNEL_FILE ${KERNEL_SRC})
   get_filename_component(KERNEL ${KERNEL_FILE} NAME_WE )
   message(${KERNEL_FILE}:${KERNEL})
   list(APPEND KERNEL_LIST ${KERNEL}.bin)
-  add_custom_command(
-    OUTPUT ${KERNEL}.bin
-    # COMMAND ${CMC} -emit-spirv -march=${HW_PLATFORM_UPPER} ${SOURCES} -o ${spirv}
-    # COMMAND ${CMC} -march=${CPU} ${KERNEL}.spv -o ${KERNEL}.bin
+  # add_custom_command(
+  #    ${KERNEL}.bin
+  #   # COMMAND ${CMC} -emit-spirv -march=${HW_PLATFORM_UPPER} ${SOURCES} -o ${spirv}
+  #   # COMMAND ${CMC} -march=${CPU} ${KERNEL}.spv -o ${KERNEL}.bin
+  #   COMMAND ${CMC} -march=${DEVICE} -I ${RT_L0_PATH} ${KERNEL_FILE} -o ${KERNEL}.bin  
+  #   )
+  add_custom_target(${KERNEL}.bin
     COMMAND ${CMC} -march=${DEVICE} -I ${RT_L0_PATH} ${KERNEL_FILE} -o ${KERNEL}.bin  
     )
   install(FILES ${CMAKE_BINARY_DIR}/${KERNEL}.bin DESTINATION ${INSTALL_DIR})
@@ -117,8 +120,8 @@ add_definitions(-Dssize_t=SSIZE_T)
 set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=SSIZE_T)
 
 set(ZBENCH_SRC zbench.cpp dev_test.cpp ${RTL0_SRC} )
-pybind11_add_module(zbench ${ZBENCH_SRC} ${KERNEL_LIST})
-# add_dependencies(zbench ${KERNEL_LIST})
+pybind11_add_module(zbench ${ZBENCH_SRC})
+add_dependencies(zbench ${KERNEL_LIST})
 
 target_link_libraries(zbench PRIVATE nlohmann_json::nlohmann_json ${CMAKE_DL_LIBS} ${LIB_LEVEL0})
 set_property(TARGET zbench PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
