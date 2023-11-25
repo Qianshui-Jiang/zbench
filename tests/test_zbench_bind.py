@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.dirname(__file__) + "./build/Debug")
+# sys.path.append(os.path.dirname(__file__) + "./build/Debug")
 
 import numpy as np
 np.random.seed(123)

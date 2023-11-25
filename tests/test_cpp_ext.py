@@ -3,11 +3,6 @@ import math
 import time
 
 import torch
-
-
-# from cpp.lltm import LLTM
-# from lltm_cpp import test_print
-from zbench import test_print
 import zbench
 import numpy as np
 import os
@@ -73,5 +68,4 @@ def test_bf16_passing():
 
 if __name__ == "__main__":
     # print("---------------")
-    test_print("-----------------")
     test_bf16_passing()
