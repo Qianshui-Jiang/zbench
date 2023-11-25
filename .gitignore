@@ -4,6 +4,7 @@ ShaderGen
 __pycache__
 *.csv
 *.log
+cm_kernel_output
 
 cpp_ext_test/cpp/__pycache__
 cpp_ext_test/cpp/build

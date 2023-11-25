@@ -96,7 +96,7 @@ def test_fp16_passing():
     
 
 if __name__ == "__main__":
-    source_bin_path = r"C:\Users\12900K\Documents\Engneeing_works\dml_workspace\zbench\build\Debug"
+    source_bin_path = r"C:\Users\12900K\Documents\Engneeing_works\dml_workspace\zbench\cm_kernel_output"
     # arr1 = np.array([6, 7.5, 8,0, 1])
     # arr2 = np.array([[1,2,3],[4,5,6]])
     # cmt = zbench.test_bind(mode="bench", input="weights", A=16, B=arr1 )

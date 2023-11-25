@@ -33,6 +33,7 @@ endif()
 include(functions.cmake)
 message(STATUS "Generating makefiles")
 
+message(FATAL_ERROR)
 
 find_library(LIB_OPENCL NAMES Intel_OpenCL_ICD64 PATHS ${CSDK_IGC}/runtime/opencl/lib)
 find_library(LIB_LEVEL0 NAMES ze_loader PATHS ${CSDK_IGC}/runtime/level_zero/lib)
@@ -70,7 +71,6 @@ foreach(KERNEL_FILE ${KERNEL_SRC})
 endforeach()
 
 # message("KERNEL_LIST: ${KERNEL_LIST}")
-# message(FATAL_ERROR)
     
 # set(KERNEL "sgemm_genx")
 # add_custom_command(
