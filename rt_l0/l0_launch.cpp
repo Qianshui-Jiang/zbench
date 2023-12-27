@@ -2,7 +2,7 @@
 #include "share.h"
 #include "Matrix.h"
 
-#include "sgemm.h"
+#include "l0_launch.h"
 #ifndef _WIN32
 #define FALSE 0
 #define TRUE  1
@@ -430,95 +430,13 @@ int _calc_bgemm(MType *mA, MType *mB, MType *matrixC, int M, int K, int N,
   
   L0_SAFE_CALL(zeInit(ZE_INIT_FLAG_GPU_ONLY));
 
-  // Discover all the driver instances
-  uint32_t driverCount = 0;
-  L0_SAFE_CALL(zeDriverGet(&driverCount, nullptr));
-  fprintf(stderr, "driverCount= %d\n", (int)driverCount);
-
-  ze_driver_handle_t *allDrivers =
-      (ze_driver_handle_t *)malloc(driverCount * sizeof(ze_driver_handle_t));
-  L0_SAFE_CALL(zeDriverGet(&driverCount, allDrivers));
-
-  // Find a driver instance with a GPU device
-  ze_driver_handle_t hDriver = nullptr;
-  ze_device_handle_t hDevice = nullptr;
-  for (uint32_t i = 0; i < driverCount; ++i) {
-    uint32_t deviceCount = 0;
-    hDriver = allDrivers[i];
-    L0_SAFE_CALL(zeDeviceGet(hDriver, &deviceCount, nullptr));
-    fprintf(stderr, "driver= %d: deviceCount= %d\n", (int)i, (int)deviceCount);
-    ze_device_handle_t *allDevices =
-        (ze_device_handle_t *)malloc(deviceCount * sizeof(ze_device_handle_t));
-    L0_SAFE_CALL(zeDeviceGet(hDriver, &deviceCount, allDevices));
-    for (uint32_t d = 0; d < deviceCount; ++d) {
-      ze_device_properties_t device_properties;
-      device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
-      device_properties.pNext = nullptr;
-      L0_SAFE_CALL(zeDeviceGetProperties(allDevices[d], &device_properties));
-      if (ZE_DEVICE_TYPE_GPU == device_properties.type) {
-        hDevice = allDevices[d];
-        break;
-      }
-    }
-    free(allDevices);
-    if (nullptr != hDevice) {
-      break;
-    }
-  }
-  free(allDrivers);
-  assert(hDriver);
-  assert(hDevice);
-
-  // Create context
-  ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
-  ze_context_handle_t hContext = nullptr;
-  L0_SAFE_CALL(zeContextCreate(hDriver, &contextDesc, &hContext));
-  assert(hContext);
-
-  // Create a command queue
-  ze_command_queue_desc_t commandQueueDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, 0, 0, 0,
-      ZE_COMMAND_QUEUE_MODE_DEFAULT, ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-  ze_command_queue_handle_t hCommandQueue;
-  L0_SAFE_CALL(zeCommandQueueCreate(hContext, hDevice, &commandQueueDesc, &hCommandQueue));
-
-  // Create a command list
-  ze_command_list_desc_t commandListDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC, 0, 0, 0};
-  ze_command_list_handle_t hCommandList;
-  L0_SAFE_CALL(zeCommandListCreate(hContext, hDevice, &commandListDesc, &hCommandList));
-
-
-  uint8_t *kernel_bin{nullptr};
-  size_t kernel_sz{0};
-  {
-    FILE *fp = fopen(bin_file, "rb");
-    assert(fp);
-
-    fseek(fp, 0, SEEK_END);
-    kernel_sz = ftell(fp);
-    rewind(fp);
-
-    kernel_bin = new uint8_t[kernel_sz];
-    fread(kernel_bin, 1, kernel_sz, fp);
-    fclose(fp);
-  }
-  fprintf(stderr, "kernel_sz= %g KB\n", kernel_sz / 1024.0);
-
-  ze_module_desc_t moduleDesc = {
-    ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr,
-    ZE_MODULE_FORMAT_NATIVE, //
-    kernel_sz,  //
-    kernel_bin, //
-    "-cmc",
-    nullptr
-  };
-
+    // Find a driver instance with a GPU device
+  auto [hDriver, hDevice, hContext] = findDriverAndDevice();
+  auto hCommandList = createImmCommandList(hContext, hDevice);
 
   auto hKernel = createKernel(hContext, hDevice, bin_file, fn_name);
   // set group size
   L0_SAFE_CALL(zeKernelSetGroupSize(hKernel, /*x*/ threadWidth, /*y*/ threadHeight, /*z*/ 1));
-
 
   // allocate l0 buffers
   ze_device_mem_alloc_desc_t deviceMemDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
@@ -532,7 +450,7 @@ int _calc_bgemm(MType *mA, MType *mB, MType *matrixC, int M, int K, int N,
   L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize_B, 64, hDevice, &dBufB));
   void *dBufC = nullptr;
   L0_SAFE_CALL(zeMemAllocDevice(hContext, &deviceMemDesc, bufsize_C, 64, hDevice, &dBufC));
-
+  
   // copy buffers to device
   L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufA, mA, bufsize_A, nullptr, 0, nullptr));
   L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, dBufB, mB, bufsize_B, nullptr, 0, nullptr));
@@ -556,30 +474,58 @@ int _calc_bgemm(MType *mA, MType *mB, MType *matrixC, int M, int K, int N,
   int StepSizeForSecondReadByte = (4 * CONTIGUOUS_K_SIZE * SIZE_OF_BF16_BYTE);
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 9, sizeof(int), &StepSizeForSecondReadByte));
   L0_SAFE_CALL(zeKernelSetArgumentValue(hKernel, 10, sizeof(int), &groupHeight));
+  
 
 
-  fprintf(stderr, "Execute kernel .. \n");
-
-  // set grid size
+  fprintf(stderr, "Execute kernel and measure.. \n");
+  // setup grid size and get a hEvent
+  ze_event_handle_t hEvent = createEvent(hContext, hDevice);
   ze_group_count_t groupCount = {groupWidth, groupHeight, 1};
+  double thost = 0.0f;
+  unsigned long long kernel_ns = 0;
 
-  // launch
-  L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, nullptr, 0, nullptr));
+  // launch & measure
+  double host_start = getTimeStamp();
 
-  L0_SAFE_CALL(zeCommandListAppendBarrier(hCommandList, nullptr, 0, nullptr));
-  // copy result to host
-  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, matrixC, dBufC, bufsize_C, nullptr, 0, nullptr));
+  L0_SAFE_CALL(zeCommandListAppendLaunchKernel(hCommandList, hKernel, &groupCount, hEvent, 0, nullptr));
+  L0_SAFE_CALL(zeEventHostSynchronize(hEvent, std::numeric_limits<uint32_t>::max()));
+  
+  int niterations = 100;
+  for (int i=0; i<niterations; i++){
+    double host_end = getTimeStamp();
+    thost += (host_end - host_start);
+    ze_kernel_timestamp_result_t timestamp;
+    zeEventQueryKernelTimestamp(hEvent, &timestamp);
+    kernel_ns += (timestamp.context.kernelEnd - timestamp.context.kernelStart);
 
-  // dispatch & wait
-  L0_SAFE_CALL(zeCommandListClose(hCommandList));
-  L0_SAFE_CALL(zeCommandQueueExecuteCommandLists(hCommandQueue, 1, &hCommandList, nullptr));
-  L0_SAFE_CALL(zeCommandQueueSynchronize(hCommandQueue, std::numeric_limits<uint32_t>::max()))
+    L0_SAFE_CALL(zeCommandListReset(hCommandList)); // reset Command list
+    L0_SAFE_CALL(zeEventHostReset(hEvent)); // reset event
+
+  }
+    thost = thost * 1000.0f / niterations;
+    double tkern = kernel_ns / 1000000.0f / niterations;
+
+
+    printf("%-18s%.4lf msec\n","kern time:", tkern);
+    printf("%-18s%.4lf msec\n","host time:", thost);
+
+    double gflops;
+    gflops = ((2000.0f*M*N*K) / (1.0f*1024*1024*1024)) / tkern;
+    printf("GEN SGEMM (kern-timer): %8.2lf Gflops\n",  gflops);
+    gflops = ((2000.0f*M*N*K) / (1.0f*1024*1024*1024)) / thost;
+    printf("GEN SGEMM (host-timer): %8.2lf Gflops\n", gflops);
+
+  // copy result to host & wait
+  L0_SAFE_CALL(zeCommandListAppendMemoryCopy(hCommandList, matrixC, dBufC, bufsize_C, hEvent, 0, nullptr));
+  L0_SAFE_CALL(zeEventHostSynchronize(hEvent, std::numeric_limits<uint32_t>::max()));
+
 
   L0_SAFE_CALL(zeMemFree(hContext, dBufA));
   L0_SAFE_CALL(zeMemFree(hContext, dBufB));
   L0_SAFE_CALL(zeMemFree(hContext, dBufC));
 
-  delete kernel_bin;
+  L0_SAFE_CALL(zeCommandListDestroy(hCommandList));
+  L0_SAFE_CALL(zeContextDestroy(hContext));
   return 0;
 }
 
@@ -587,7 +533,7 @@ int _calc_bgemm(MType *mA, MType *mB, MType *matrixC, int M, int K, int N,
 
 
 std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, const char* fn_name,
-              const py::args& args, const py::kwargs& kwargs){
+                              const py::args& args, const py::kwargs& kwargs){
 // Parse the input
   std::vector<int> v_argc;
   std::vector<MType *> v_argv;
@@ -669,7 +615,7 @@ std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, con
   free(matrixC_ref);
 #endif
   
-  std::vector<MType> result(M * K);
+  std::vector<MType> result(M * N);
   memcpy(&result[0], matrixC, M*N*sizeof(MType));
   free(matrixC);
 

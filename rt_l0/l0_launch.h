@@ -25,3 +25,6 @@ int run_bgemm(int M, int K, int N, int threadWidth, int threadHeight,
 
 std::vector<MType> run_kernel(const char* bin_file , const char* spirv_file, const char* fn_name,
               const py::args& args, const py::kwargs& kwargs);
+
+std::vector<MType> run_gemm_nchw_fp16(const char* bin_file , const char* spirv_file, const char* fn_name,
+              const py::args& args, const py::kwargs& kwargs);

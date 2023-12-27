@@ -10,11 +10,12 @@
 // namespace nl = nlohmann;
 
 #include "dev_test.h"
-#include "sgemm.h"
+#include "l0_launch.h"
 
 PYBIND11_MODULE(zbench, m)
 {
     m.doc() = "pybind11 testbed for meta commande and CM kernels";
+    
     // dev function/feature test
     m.def("add", &add, "A function which adds two numbers", py::arg("i") = 1, py::arg("j") = 2);
     m.def("test_bind", &test_bind, py::arg("mode"), py::arg("input"),"test pybind11 for array transfering");
@@ -40,6 +41,12 @@ PYBIND11_MODULE(zbench, m)
 
     // code for testing the numpy array binding
     m.def("run_kernel", &run_kernel, "A function which adds two numbers", 
+          py::arg("bin_file") = "bgemm_dpas_genx.bin", 
+          py::arg("spirv_file") = "bgemm_dpas_genx.spv", 
+          py::arg("fn_name") = "bgemm_dpas"
+          );
+          
+    m.def("run_gemm_nchw_fp16", &run_gemm_nchw_fp16, "A function which adds two numbers", 
           py::arg("bin_file") = "bgemm_dpas_genx.bin", 
           py::arg("spirv_file") = "bgemm_dpas_genx.spv", 
           py::arg("fn_name") = "bgemm_dpas"

@@ -1,7 +1,6 @@
 .gitignore
 .gitmodules
 README.md
-build_cm_kernels.py
 dev_test.cpp
 dev_test.h
 jit.py
@@ -10,6 +9,7 @@ zbench.cpp
 cm_kernels/bgemm_dpas_genx.cpp
 cm_kernels/sgemm_genx_fp32.cpp
 dist/zbench-0.0.0-py3.10-win-amd64.egg
+dist/zbench-0.0.0-py3.11-win-amd64.egg
 flash_att_dev/flash_att_dev.py
 flash_att_dev/padding_utils.py
 flash_att_dev/dummy_qkv/case_rand/S_dmask.pt
@@ -22,13 +22,17 @@ flash_att_dev/dummy_qkv/case_sdxl/qkv_input.pt
 flash_att_dev/dummy_qkv/case_sdxl/used_params.txt
 rt_l0/Matrix.h
 rt_l0/cm_utils.h
+rt_l0/l0_launch.cpp
+rt_l0/l0_launch_model_shader.cpp
 rt_l0/l0_rt_helpers.h
-rt_l0/sgemm.cpp
-rt_l0/sgemm.h
 rt_l0/share.h
 tests/test_cpp_ext.py
 tests/test_flash_att.py
-tests/test_zbench_bind.py
+tests/test_model_gemm.py
+tests/test_model_gemv.py
+tests/test_model_mha.py
+tests/test_pyopencl.py
+tests/test_zbench_sample.py
 zbench.egg-info/PKG-INFO
 zbench.egg-info/SOURCES.txt
 zbench.egg-info/dependency_links.txt

@@ -41,7 +41,7 @@ include_path_list.append(os.path.join(cm_root_path, 'usr/include '))
 library_path_list.append(LIB_LEVEL0_PATH)
 library_list.append('ze_loader') # Level 0 runtime
 
-src_list = ['zbench.cpp', 'rt_l0/sgemm.cpp', 'dev_test.cpp']
+src_list = ['zbench.cpp', 'rt_l0/l0_launch.cpp', 'rt_l0/l0_launch_model_shader.cpp', 'dev_test.cpp']
 
 
 # exit()

@@ -55,6 +55,7 @@ def test_bf16_passing():
                                   os.path.join(source_bin_path, "bgemm_dpas_genx.spv"), 
                                  "bgemm_dpas",
                                 A=m_A, B=m_B, m=m, n=n, k=k, tx=4, ty=4, gx=1, gy=1)
+
     temp_res = np.array(temp_res).astype("uint16")
     temp_res = np_bf162np_float(temp_res)
 

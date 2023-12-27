@@ -5,6 +5,9 @@ __pycache__
 *.csv
 *.log
 cm_kernel_output
+vtune_profile
+dist
+zbench.egg-info
 
 cpp_ext_test/cpp/__pycache__
 cpp_ext_test/cpp/build
