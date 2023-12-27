@@ -8,8 +8,6 @@ setup.py
 zbench.cpp
 cm_kernels/bgemm_dpas_genx.cpp
 cm_kernels/sgemm_genx_fp32.cpp
-dist/zbench-0.0.0-py3.10-win-amd64.egg
-dist/zbench-0.0.0-py3.11-win-amd64.egg
 flash_att_dev/flash_att_dev.py
 flash_att_dev/padding_utils.py
 flash_att_dev/dummy_qkv/case_rand/S_dmask.pt

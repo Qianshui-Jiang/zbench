@@ -343,7 +343,6 @@ def test_fp16_vxm_dpas():
     # print("ref_C:", ref_C)
 
 
-
 def test_fp16_vxm_dpas_trans():
     # scal=65
     def _bench_vxm_nchw_fp16_dpas(A, B, m, k, n, tile_m,  tile_k, tile_n,
@@ -414,14 +413,14 @@ def test_fp16_vxm_dpas_trans():
         n=4096
         
         tile_m=8
-        tile_k=16
-        tile_n=16
+        tile_k=8
+        tile_n=32
 
         tx=1
-        ty=16
+        ty=1
         tz=1
         gx=1
-        gy=128
+        gy=1024
         gz=1
         
     elif test_case == 2:
@@ -728,8 +727,8 @@ def test_fp16_vxm_row_major():
 if __name__ == "__main__":
     source_bin_path = r"C:\Users\12900K\Documents\Engneeing_works\dml_workspace\zbench\cm_kernel_output"
     # test_fp32_vxm()
-    # test_fp16_vxm()
-    test_fp16_vxm_dpas()
+    test_fp16_vxm()
+    # test_fp16_vxm_dpas()
     # test_fp16_vxm_dpas_trans()
     # test_fp16_slm()
     # test_fp16_vxm_row_major()

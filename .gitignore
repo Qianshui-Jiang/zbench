@@ -1,5 +1,8 @@
 build
-3rdparty
+3rdparty\d3dx12
+3rdparty\dml
+3rdparty\dmlx
+3rdparty\igdext
 ShaderGen
 __pycache__
 *.csv
