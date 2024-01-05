@@ -18,6 +18,7 @@ flash_att_dev/dummy_qkv/case_sdxl/S_dmask.pt
 flash_att_dev/dummy_qkv/case_sdxl/att_out.pt
 flash_att_dev/dummy_qkv/case_sdxl/qkv_input.pt
 flash_att_dev/dummy_qkv/case_sdxl/used_params.txt
+rt_igdext/rt_igdext.cpp
 rt_l0/Matrix.h
 rt_l0/cm_utils.h
 rt_l0/l0_launch.cpp
@@ -30,6 +31,7 @@ tests/test_model_gemm.py
 tests/test_model_gemv.py
 tests/test_model_mha.py
 tests/test_pyopencl.py
+tests/test_rt_igdext.py
 tests/test_zbench_sample.py
 zbench.egg-info/PKG-INFO
 zbench.egg-info/SOURCES.txt

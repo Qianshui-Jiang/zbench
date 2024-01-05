@@ -11,6 +11,7 @@
 
 #include "dev_test.h"
 #include "l0_launch.h"
+#include "rt_igdext.h"
 
 PYBIND11_MODULE(zbench, m)
 {
@@ -45,11 +46,15 @@ PYBIND11_MODULE(zbench, m)
           py::arg("spirv_file") = "bgemm_dpas_genx.spv", 
           py::arg("fn_name") = "bgemm_dpas"
           );
-          
+
     m.def("run_gemm_nchw_fp16", &run_gemm_nchw_fp16, "A function which adds two numbers", 
           py::arg("bin_file") = "bgemm_dpas_genx.bin", 
           py::arg("spirv_file") = "bgemm_dpas_genx.spv", 
           py::arg("fn_name") = "bgemm_dpas"
           );
 
+    m.def("test_rt_igdext", &test_rt_igdext, "A function which adds two numbers", 
+          py::arg("cm_file") = "gemm_nchw_fp16.cpp",
+          py::arg("build_options") = "None"
+          );
 }

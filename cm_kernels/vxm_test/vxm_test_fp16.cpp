@@ -166,7 +166,7 @@ extern "C" _GENX_MAIN_ void vxm_test_fp16(
 			vector_ref<DT, TILE_N> input_b = input_b_packed.format<DT>();        
 			input_b_offset += SIZE_N * sizeof(DT);
 
-		
+
 			// Acc
 #if ACCU_IS_FP32
 			vector<DT_ACCU, TILE_N> input_b_fp32 = vector<DT_ACCU, TILE_N>(input_b);
