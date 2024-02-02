@@ -5,7 +5,7 @@
 //.full_options "-abiver 2 -printregusage -TotalGRFNum 256 -output -binary -dumpcommonisa -enableHalfLSC -hasNoInt64Add -fusedCallWA 1 -LSCFenceWA "
 //.instCount 95
 //.RA type	TRIVIAL_RA
-//.git-hash 61adfa08f1610456ac8dd5539a6657645ff14b77
+//.git-hash ee9d4992e9bf803c53080043aa3f5c1df6a6234f
 //.GRF count 41
 
 //.declare BuiltInR0 (0)  rf=r size=32 type=ud align=16 words (r0.0) IsBuiltin

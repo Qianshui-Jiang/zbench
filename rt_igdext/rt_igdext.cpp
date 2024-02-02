@@ -1,5 +1,3 @@
-
-
 #include <chrono>
 #include <format>
 #include <iostream>
@@ -46,7 +44,7 @@ inline void print_performance_stats(const std::vector<std::chrono::microseconds>
 }
 
 
-std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string &build_options,
+std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::string &build_options,
                                 const py::args &args, const py::kwargs &kwargs) {
 
     assert(kwargs.contains("iter_nums"));
@@ -55,12 +53,9 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
     std::cout<< "---build_options: " << build_options << std::endl;
     std::cout<< "---iter_nums: " << kwargs["iter_nums"].cast<std::uint32_t>() << std::endl;
     std::cout<< "------------------ form buffers ------------------" << std::endl;
-    // constexpr const std::uint32_t MAX_ITERATIONS = kwargs["iter_nums"].cast<u_int>();
     // constexpr const std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<u_int>();
-    std::uint32_t MAX_ITERATIONS = kwargs["iter_nums"].cast<std::uint32_t>();
-    std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<std::uint32_t>();
+    std::uint32_t iteration_nums = kwargs["iter_nums"].cast<std::uint32_t>();
     std::vector<MType> result;
-
 
     try
     {
@@ -72,7 +67,7 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         ComPtr<ID3D12GraphicsCommandList> command_list;
         initalize_d3d12(d3d12_device, command_queue, command_allocator, command_list);
         auto dml_device = create_dml_device(d3d12_device.Get());
-        auto performance_collector = initialize_d3d12_performance_collector(d3d12_device.Get(), MAX_ITERATIONS);
+        auto performance_collector = initialize_d3d12_performance_collector(d3d12_device.Get(), iteration_nums);
 
         auto intel_extension_d3d12 = IntelExtension(d3d12_device.Get());
 
@@ -87,7 +82,7 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
 
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
         node->compile_shader(cm_file, build_options);
-        
+
         // bind descriptor heap
         const auto descriptors_count = node->get_total_descriptor_count();
         auto descriptor_heap = create_descriptor_heap(d3d12_device.Get(), descriptors_count);
@@ -102,7 +97,7 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         command_list->SetDescriptorHeaps(1, d3d12_descriptor_heaps);
 
         // Execute & measure the operator on the GPU.
-        for (std::uint32_t i = 0; i < dispatch_iterations; ++i)
+        for (std::uint32_t i = 0; i < iteration_nums; ++i)
         {
             performance_collector.add_timestamp(command_list.Get());
             node->execute(command_list.Get());
@@ -110,7 +105,7 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         }
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
-        
+
         const auto device_remove_reason = d3d12_device->GetDeviceRemovedReason();
         if (device_remove_reason != S_OK) {
           printf("Device removal. Reason: %d\n", device_remove_reason);
@@ -135,9 +130,9 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         performance_collector.timestamp_index = 0;
         std::vector<std::chrono::microseconds> timings(timestamps_timings.size() / 2);
         for (uint32_t i = 0; i < timings.size(); i++) {
-          const auto t0 = timestamps_timings[i * 2];
-          const auto t1 = timestamps_timings[i * 2 + 1];
-          timings[i] = t1 - t0;
+            const auto t0 = timestamps_timings[i * 2];
+            const auto t1 = timestamps_timings[i * 2 + 1];
+            timings[i] = t1 - t0;
         }
         print_performance_stats(timings);
 

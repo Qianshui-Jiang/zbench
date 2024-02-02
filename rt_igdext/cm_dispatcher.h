@@ -13,9 +13,6 @@ namespace py=pybind11;
 #include "dx12_utils.h"
 #include "layers_utils.h"
 
-
-
-
 class CmDispatcher : public NodeDispatcher
 {
 public:

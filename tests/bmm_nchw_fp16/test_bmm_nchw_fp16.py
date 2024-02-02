@@ -45,8 +45,7 @@ def test_gemm1_bmm():
     print(ref_C.shape)
 
 
-def test_rt_igdext():
-
+def test_rt_igdext_gemm():
     def _build_bench(A, B, C, m, k, n, tile_m,  tile_k, tile_n,
                          tx, ty, tz, gx, gy, gz, iter_num):
 
@@ -56,12 +55,13 @@ def test_rt_igdext():
         _define += f"-DSLICE_K=1 -DACCU_IS_FP32=0 -DFUSE_SOFTMAX=0 -DALPHA=3.000000 -DBETA=3.000000 "
         _define += f"-DLWS_SIZE_X={tx} -DLWS_SIZE_Y={ty} -DLWS_SIZE_Z={tz} "
 
-        _define += f"-mdump_asm -Qxcm_doubleGRF -mCM_printregusage "
+        # _define += f"-mdump_asm -Qxcm_doubleGRF -mCM_printregusage "
+        _define += f" -Qxcm_doubleGRF "
 
         _include = f"-I . "
 
         build_opt = _include + _define
-        temp_res  = zbench.test_rt_igdext(cm_file = "./bmm_nchw_fp16.cpp", 
+        temp_res  = zbench.launch_rt_igdext(cm_file = "./bmm_nchw_fp16.cpp", 
                                           build_options = build_opt,
                                           A=A, B=B, C=C,
                                           thg_x=gx, thg_y=gy, thg_z=gz, iter_nums=iter_num)
@@ -129,7 +129,7 @@ def test_rt_igdext():
 
 
 if __name__ == "__main__":
-    test_rt_igdext()
+    test_rt_igdext_gemm()
 
     # test_gemm0_bmm()
     # test_gemm1_bmm()
