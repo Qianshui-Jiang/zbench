@@ -21,9 +21,9 @@ def build_cm_kernels(kernel_file, define_flag=None):
     os.remove(dst_path)
   inc_path = os.path.join(file_root_path, 'rt_l0')
   if define_flag is not None:
-    cmd = f'{cm_exe} -march={device} {define_flag} -I {inc_path} {src_path} -o {dst_path}'
+    cmd = f'{cm_exe} -march={device} {define_flag} -I {inc_path} {src_path} -o {dst_path} '
   else:
-    cmd = f'{cm_exe} -march={device} -I {inc_path} {src_path} -o {dst_path}'
+    cmd = f'{cm_exe} -march={device} -I {inc_path} {src_path} -o {dst_path} '
   
   res = os.system(cmd)
   

@@ -12,126 +12,6 @@
 namespace py=pybind11;
 
 
-enum class DataType
-{
-    eFp32 = 0,
-    eFp16 = 1,
-    eCount
-};
-
-enum class DataLayout
-{
-    eNCHW = 0,
-    eNHWC = 1,
-    eW,
-
-
-    // ..
-    // ..
-
-    // weights layouts
-    eWeightsLayoutStart = 1000,
-    eOIYX,          // nchw and oiyx layouts are the same format, this is just to express it with proper name
-    eIO_i8_o8_i2,  // layout for 1x1 fp16 CM simd8 dpas kernel
-
-    eOYXI_o8,   // layout for non dpas CM kernel for simd8 mad
-    eOYXI_o16,  // layout for non dpas CM kernel for simd16 mad
-
-    // ..
-    // ..
-
-    eCount
-};
-
-struct TensorShape
-{
-    std::uint32_t n = 0;
-    std::uint32_t c = 0;
-    std::uint32_t d = 0; // for 5d tensors
-    std::uint32_t h = 0;
-    std::uint32_t w = 0;
-
-    TensorShape() = default;
-
-    TensorShape(std::uint32_t n, std::uint32_t c, std::uint32_t h, std::uint32_t w)
-        : n(n), c(c), h(h), w(w)
-    {
-    }
-
-    TensorShape(std::vector<std::uint32_t> in_v)
-    {
-        assert(!(in_v.size() <3 || in_v.size() > 5) && "Not supported shape!");
-        std::int32_t current_idx = static_cast<std::int32_t>(in_v.size()) - 1;
-        if (in_v.size() > 3)
-        {
-            w = in_v[current_idx--];
-        }
-        h = in_v[current_idx--];
-        if (in_v.size() == 5)
-        {
-            d = in_v[current_idx--];
-        }
-        if (in_v.size() > 2)
-        {
-            c = in_v[current_idx--];
-            n = in_v[current_idx--];
-        }
-        assert(current_idx == -1 && "Current idex should be equal -1 (parsed all dimensions).");
-    }
-
-    inline std::size_t get_elements_count() const
-    {
-        if (get_dims_count() == 0)
-        {
-            return 0;
-        }
-        std::size_t acc = 1;
-        acc *= n ? n : 1;
-        acc *= c ? c : 1;
-        acc *= d ? d : 1;
-        acc *= h ? h : 1;
-        acc *= w ? w : 1;
-        return acc;
-    }
-
-    inline std::uint8_t get_dims_count() const
-    {
-        std::uint8_t ret = 0;
-        if (n) ret++;
-        if (c) ret++;
-        if (d) ret++;
-        if (h) ret++;
-        if (w) ret++;
-
-        return ret;
-    }
-};
-
-
-enum class GemmType
-{
-    GemmType_AB = 0,
-    // qkv
-    GemmType_QK_QKV = 1,
-    GemmType_SV_S_QKV = 2,
-
-    // q + kv
-    GemmType_QK_Q_KV,
-    GemmType_SV_S_KV,
-};
-
-struct ConformanceResult
-{
-    bool passed = true;
-    float epsilon = 0.0f;
-    float biggest_difference = 0.0f;
-    float node_value = 0.0f;
-    float reference_value = 0.0f;
-    std::uint32_t index = 0;
-    std::size_t tested_samples_count = 0;
-};
-
-
 inline float cast_to_float(Half v)
 {
     return DirectX::PackedVector::XMConvertHalfToFloat(v);
@@ -148,54 +28,25 @@ enum class DescType
     eUav
 };
 
-
 class NodeDispatcher
 {
 public:
     virtual std::uint32_t get_total_descriptor_count() = 0;
-    virtual void initialize(ID3D12GraphicsCommandList* cmd_list, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) = 0;
+
+    virtual void initialize(ID3D12GraphicsCommandList* cmd_list, 
+                            D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, 
+                            D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) = 0;
+
     virtual void execute(ID3D12GraphicsCommandList* cmd_list) = 0;
+
     virtual void compile_shader(const std::string &cm_file, const std::string &build_options)=0;
-    
+
     virtual std::vector<MType> get_output_vector(ID3D12CommandQueue* command_queue,
-        ID3D12CommandAllocator* command_allocator, ID3D12GraphicsCommandList* command_list) = 0;
+                                                ID3D12CommandAllocator* command_allocator,
+                                                ID3D12GraphicsCommandList* command_list) = 0;
 
     virtual ~NodeDispatcher() = default;
 };
-
-
-inline std::uint8_t get_data_type_bytes_width(DataType dt)
-{
-    switch (dt)
-    {
-    case DataType::eFp32: return sizeof(float);
-    case DataType::eFp16: return sizeof(std::uint16_t);
-    default:
-        assert(false && "Unknown data type.");
-    }
-    return 0;
-}
-
-
-inline void randomize_linear_container_float(std::mt19937& gen, std::uniform_real_distribution<float>& dist, std::vector<std::byte> container)
-{
-    using Dt = float;
-    auto* ptr = reinterpret_cast<Dt*>(container.data());
-    for (auto i = 0; i < container.size() / sizeof(Dt); i++)
-    {
-        ptr[i] = static_cast<Dt>(dist(gen));
-    }
-    }
-
-inline void randomize_linear_container_half(std::mt19937& gen, std::uniform_real_distribution<float>& dist, std::vector<std::byte> container)
-{
-    using Dt = Half;
-    auto* ptr = reinterpret_cast<Dt*>(container.data());
-    for (auto i = 0; i < container.size() / sizeof(Dt); i++)
-    {
-        ptr[i] = DirectX::PackedVector::XMConvertFloatToHalf(dist(gen));
-    }
-}
 
 
 inline ComPtr<ID3D12RootSignature> create_root_signature(ID3D12Device* d3d12_device, std::vector<DescType> desc_list)
@@ -266,6 +117,7 @@ inline ComPtr<ID3D12RootSignature> create_root_signature(ID3D12Device* d3d12_dev
     return ret;
 }
 
+
 inline std::vector<CD3DX12_GPU_DESCRIPTOR_HANDLE> create_resource_views_and_handles(ID3D12Device* d3d12_device, std::vector<std::pair<DescType, ID3D12Resource*>> resources_list, 
                                                                                     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle)
 {
@@ -319,7 +171,6 @@ inline std::vector<CD3DX12_GPU_DESCRIPTOR_HANDLE> create_resource_views_and_hand
 
     return gpu_handles;
 }
-
 
 
 inline void dispatch_kernel(ID3D12GraphicsCommandList* cmd_list, ID3D12PipelineState* pso, ID3D12RootSignature* root_signature, 

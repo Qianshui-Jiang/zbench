@@ -12,8 +12,6 @@
 #include "DirectMLX.h"
 #include "d3dx12.h"
 
-#undef max
-#undef min
 
 #define INTC_IGDEXT_D3D12
 #include <igdext.h>

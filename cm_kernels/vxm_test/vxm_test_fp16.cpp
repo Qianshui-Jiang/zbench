@@ -157,7 +157,7 @@ extern "C" _GENX_MAIN_ void vxm_test_fp16(
 
 	   
 
-		// #pragma unroll
+		#pragma unroll
 		for(uint32_t k = 0; k < TILE_K; k++) // reduce for inner product
 		// for(uint32_t k = 0; k < 32; k++) // reduce for inner product
 		{

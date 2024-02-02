@@ -12,9 +12,7 @@
 
 #include "rt_igdext.h"
 #include "dx12_utils.h"
-// #include "layers_utils.h"
-#include "gemm.h"
-// #include <dml_types.hpp>
+#include "cm_dispatcher.h"
 
 inline void print_performance_stats(const std::vector<std::chrono::microseconds>& timings)
 {
@@ -47,27 +45,27 @@ inline void print_performance_stats(const std::vector<std::chrono::microseconds>
     std::cout << "Best: " << best.count() << std::endl;
 }
 
-// inline void init_buffer_info(){
-//     r
-// }
 
 std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string &build_options,
                                 const py::args &args, const py::kwargs &kwargs) {
 
+    assert(kwargs.contains("iter_nums"));
+
     std::cout<< "---------cm_file: " << cm_file << std::endl;
     std::cout<< "---build_options: " << build_options << std::endl;
+    std::cout<< "---iter_nums: " << kwargs["iter_nums"].cast<std::uint32_t>() << std::endl;
     std::cout<< "------------------ form buffers ------------------" << std::endl;
+    // constexpr const std::uint32_t MAX_ITERATIONS = kwargs["iter_nums"].cast<u_int>();
+    // constexpr const std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<u_int>();
+    std::uint32_t MAX_ITERATIONS = kwargs["iter_nums"].cast<std::uint32_t>();
+    std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<std::uint32_t>();
     std::vector<MType> result;
-
 
 
     try
     {
-        constexpr const std::uint32_t MAX_ITERATIONS = 10'000;
-        constexpr const std::uint32_t dispatch_iterations = 1000;
-        
-    // generic type of layers options
-    // specific for implementation
+        // generic type of layers options
+        // specific for implementation
         ComPtr<ID3D12Device> d3d12_device;
         ComPtr<ID3D12CommandQueue> command_queue;
         ComPtr<ID3D12CommandAllocator> command_allocator;
@@ -84,11 +82,9 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
 
 
         std::unique_ptr<NodeDispatcher> node;
-     
-        node = std::make_unique<CmDispatcher>(intel_extension_d3d12, 
-                                            d3d12_device.Get(), dml_device.Get(), 
-                                            dml_command_recorder.Get(), command_list.Get(),
-                                            args, kwargs);
+        node = std::make_unique<CmDispatcher>(intel_extension_d3d12, d3d12_device.Get(), dml_device.Get(), 
+                                            dml_command_recorder.Get(), command_list.Get(), args, kwargs);
+
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
         node->compile_shader(cm_file, build_options);
         
@@ -114,13 +110,13 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         }
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
-        result = node->get_output_vector(command_queue.Get(), command_allocator.Get(), command_list.Get());
         
         const auto device_remove_reason = d3d12_device->GetDeviceRemovedReason();
-        if (device_remove_reason != S_OK)
-        {
-            printf("Device removal. Reason: %d\n", device_remove_reason);
+        if (device_remove_reason != S_OK) {
+          printf("Device removal. Reason: %d\n", device_remove_reason);
         }
+
+        result = node->get_output_vector(command_queue.Get(), command_allocator.Get(), command_list.Get());
 
         // Copy the timing data back
         command_list->ResolveQueryData(
@@ -130,21 +126,18 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
             performance_collector.timestamp_index,
             performance_collector.timestamp_readback_buffer.Get(),
             0);
+        close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
-        close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(),
-                                 command_allocator.Get(), command_list.Get());
-
+        // Perfromance statistic
         uint64_t timestamp_frequency = 0;
         command_queue->GetTimestampFrequency(&timestamp_frequency);
-
         const auto timestamps_timings = get_timestamps_timings_from_ptr<std::chrono::microseconds>(timestamp_frequency, performance_collector.timestamp_readback, performance_collector.timestamp_index);
         performance_collector.timestamp_index = 0;
         std::vector<std::chrono::microseconds> timings(timestamps_timings.size() / 2);
-        for (uint32_t i = 0; i < timings.size(); i++)
-        {
-            const auto t0 = timestamps_timings[i * 2];
-            const auto t1 = timestamps_timings[i * 2 + 1];
-            timings[i] = t1 - t0;
+        for (uint32_t i = 0; i < timings.size(); i++) {
+          const auto t0 = timestamps_timings[i * 2];
+          const auto t1 = timestamps_timings[i * 2 + 1];
+          timings[i] = t1 - t0;
         }
         print_performance_stats(timings);
 
@@ -152,7 +145,7 @@ std::vector<MType> test_rt_igdext(const std::string &cm_file, const std::string 
         std::cerr << "Exception caught: {" << e.what() << "} \n";
         return result;
     }
-    
+
     return result;
 }
 

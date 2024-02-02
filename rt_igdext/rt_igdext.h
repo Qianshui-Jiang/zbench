@@ -13,6 +13,5 @@ namespace nl=nlohmann;
 
 typedef uint16_t MType;
 
-
 std::vector<MType> test_rt_igdext(const std::string &cm_file , const std::string &build_options,
                                     const py::args& args, const py::kwargs& kwargs);

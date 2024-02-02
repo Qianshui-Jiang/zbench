@@ -14,6 +14,8 @@ namespace py=pybind11;
 #include "layers_utils.h"
 
 
+
+
 class CmDispatcher : public NodeDispatcher
 {
 public:
@@ -51,7 +53,6 @@ public:
                                       D3D12_RESOURCE_STATE_GENERIC_READ);
 
         // create data buffer
-
         for (int i = 0; i < all_io_buffers_.size(); i++) {
             if (py::type::of(all_tensor_arrays_[i]) == py::type::of(py::array())) {
                 py::buffer_info tensor_info = all_tensor_arrays_[i].request();
@@ -141,7 +142,9 @@ public:
         pso_ = intc_ext_.create_pipeline(byte_code, build_options, root_signature_.Get(), INTC_D3D12_SHADER_INPUT_TYPE::CM);
     }
 
-    void initialize(ID3D12GraphicsCommandList* cmd_list, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) override
+    void initialize(ID3D12GraphicsCommandList* cmd_list, 
+                    D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, 
+                    D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) override
     {
         std::vector<std::pair<DescType, ID3D12Resource*>> resources_list;
         resources_list.reserve(get_total_descriptor_count());
@@ -168,8 +171,9 @@ public:
     }
 
 
-    std::vector<MType> get_output_vector(ID3D12CommandQueue* command_queue, ID3D12CommandAllocator* command_allocator, 
-                                            ID3D12GraphicsCommandList* command_list) override {
+    std::vector<MType> get_output_vector(ID3D12CommandQueue* command_queue, 
+                                        ID3D12CommandAllocator* command_allocator, 
+                                        ID3D12GraphicsCommandList* command_list) override {
         const auto tensor_out_bytes_width = get_output_buffer_size();
 
         // readback data and validate

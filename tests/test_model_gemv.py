@@ -17,7 +17,7 @@ def np_bf162np_float(arr):
     return u32.view("<f4")
 
 def test_fp32_vxm():
-    
+
     def _bench_gemm_nchw_fp16(A, B, m, k, n, tile_m,  tile_k, tile_n,
                             tx, ty, tz, gx, gy, gz, iter_num):
         
@@ -39,7 +39,8 @@ def test_fp32_vxm():
         # temp_res = np_bf162np_float(temp_res)
             
         return temp_res
-        
+
+
     scal=128
     # scal=1
     # m=16*scal
@@ -151,7 +152,7 @@ def test_fp16_vxm():
         n=32*32
     
     tile_m=1
-    tile_k=8
+    tile_k=16
     tile_n=32
 
     tx=1

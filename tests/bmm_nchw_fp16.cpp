@@ -9,7 +9,7 @@
 #endif
 
 
-extern "C" _GENX_MAIN_ void gemm_nchw_fp16(
+extern "C" _GENX_MAIN_ void bmm_nchw_fp16(
 	SurfaceIndex surface_input_a [[type("buffer_t")]],
 	SurfaceIndex surface_input_b [[type("buffer_t")]],
 	SurfaceIndex surface_output [[type("buffer_t")]]
@@ -18,12 +18,14 @@ extern "C" _GENX_MAIN_ void gemm_nchw_fp16(
     const uint32_t thread_id_0 = cm_group_id(0) * cm_local_size(0) + cm_local_id(0);
     const uint32_t thread_id_1 = cm_group_id(1) * cm_local_size(1) + cm_local_id(1);
     const uint32_t thread_id_2 = cm_group_id(2) * cm_local_size(2) + cm_local_id(2);
-	
+
     const uint32_t input_a_load_size = (TILE_K * sizeof(DT)) / sizeof(uint32_t);
     const uint32_t input_b_load_size = (TILE_N * sizeof(DT)) / sizeof(uint32_t);
         
     const uint32_t input_a_base_offset = thread_id_0 * TILE_M * SIZE_K * sizeof(DT);
-    
+	if(thread_id_1 > SIZE_N/TILE_N){
+		return;
+	}
 	matrix<DT_ACCU, TILE_M, TILE_N> accu(0.0f);
     uint32_t input_b_offset = thread_id_1 * TILE_N * sizeof(DT);
 	
@@ -38,7 +40,7 @@ extern "C" _GENX_MAIN_ void gemm_nchw_fp16(
 			const uint32_t input_a_offset = input_a_base_offset + (m * SIZE_K + i * TILE_K) * sizeof(DT);
 			input_a_packed.row(m) = cm_load<uint32_t, input_a_load_size, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_a, input_a_offset);
 		}
-	   
+
 
 		#pragma unroll
 		for(uint32_t k = 0; k < TILE_K; k++)
@@ -46,7 +48,7 @@ extern "C" _GENX_MAIN_ void gemm_nchw_fp16(
 			vector<uint32_t, input_b_load_size> input_b_packed = cm_load<uint32_t, input_b_load_size, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_b, input_b_offset);  
 			vector_ref<DT, TILE_N> input_b = input_b_packed.format<DT>();        
 			input_b_offset += SIZE_N * sizeof(DT);
-
+			
 		
 			#pragma unroll
 			for(uint32_t j = 0; j < TILE_M; j++)
@@ -67,7 +69,6 @@ extern "C" _GENX_MAIN_ void gemm_nchw_fp16(
 				
 		
 	matrix<DT, TILE_M, TILE_N> accu_out = accu;  // if DT_ACCU == DT then compiler removes this line
-	accu_out *= DT(SCALE);
 	
 	#pragma unroll
     for(uint32_t i = 0; i < TILE_M; i++)
