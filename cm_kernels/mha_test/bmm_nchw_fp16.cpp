@@ -30,10 +30,10 @@ extern "C" _GENX_MAIN_ void bmm_nchw_fp16(
 	}
 	matrix<DT_ACCU, TILE_M, TILE_N> accu(0.0f);
     uint32_t input_b_offset = thread_id_1 * TILE_N * sizeof(DT);
-
+	
     matrix<DT, TILE_M, TILE_K> input_a;   
     matrix_ref<uint32_t, TILE_M, TILE_K/2> input_a_packed = input_a.format<uint32_t, TILE_M, TILE_K/2>();
-
+    
 	for(uint32_t i = 0; i < SIZE_K / TILE_K; i++)
 	{
 		#pragma unroll
@@ -50,8 +50,8 @@ extern "C" _GENX_MAIN_ void bmm_nchw_fp16(
 			vector<uint32_t, input_b_load_size> input_b_packed = cm_load<uint32_t, input_b_load_size, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_b, input_b_offset);  
 			vector_ref<DT, TILE_N> input_b = input_b_packed.format<DT>();        
 			input_b_offset += SIZE_N * sizeof(DT);
-
-
+			
+		
 			#pragma unroll
 			for(uint32_t j = 0; j < TILE_M; j++)
 			{
@@ -68,10 +68,10 @@ extern "C" _GENX_MAIN_ void bmm_nchw_fp16(
     }
     const uint32_t output_store_size = (TILE_N * sizeof(DT)) / sizeof(uint32_t);
     uint32_t output_offset = (thread_id_0 * TILE_M * SIZE_N + thread_id_1 * TILE_N) * sizeof(DT);
-
-
+				
+		
 	matrix<DT, TILE_M, TILE_N> accu_out = accu;  // if DT_ACCU == DT then compiler removes this line
-
+	
 	#pragma unroll
     for(uint32_t i = 0; i < TILE_M; i++)
     {

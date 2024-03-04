@@ -3,7 +3,7 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CppExtension
 
 __version__ = "0.0.1"
-# os.environ['DISTUTILS_USE_SDK']='1'  # something about oneAPI openCL runtime
+os.environ['DISTUTILS_USE_SDK']='1'  # something about oneAPI openCL runtime
 file_root_path = os.path.dirname(__file__)
 
 # ----include Path-----

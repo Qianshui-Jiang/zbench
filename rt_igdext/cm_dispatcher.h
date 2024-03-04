@@ -31,9 +31,6 @@ public:
             thg_z_ = kwargs["thg_z"].cast<u_int>();
             // get total upload size 
             for (auto item : kwargs) {
-                // std::cout << "buffer key: " << item.first
-                //             << " , type: " << py::type::of(item.second).str()
-                //             << std::endl; // <class 'numpy.ndarray'>
                 if (py::type::of(item.second) == py::type::of(py::array())) {
                     auto buf_in = py::array_t<MType, py::array::c_style | py::array::forcecast>(kwargs[item.first]);
                     all_tensor_arrays_.push_back(buf_in);
@@ -45,6 +42,7 @@ public:
 
         // create upload buffer        
         all_io_buffers_.resize(all_tensor_arrays_.size());
+        // std::cout << "all_tensor_arrays_.size(): " << all_tensor_arrays_.size() << std::endl;
         upload_buffer_ = create_buffer(d3d12_device, total_upload_size,
                                       D3D12_HEAP_TYPE_UPLOAD,
                                       D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -58,7 +56,7 @@ public:
                     d3d12_device, buffer_size_in_bytes, D3D12_HEAP_TYPE_DEFAULT,
                     D3D12_RESOURCE_STATE_COPY_DEST,
                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-                printf("tensor input [%d] > 0\n", i);
+                printf("tensor input [%d]: %d bytes\n", i, buffer_size_in_bytes);
             }
         }
 
@@ -66,7 +64,11 @@ public:
         std::byte* upload_mapped_ptr = nullptr;
         upload_buffer_->Map(0, nullptr, reinterpret_cast<void**>(&upload_mapped_ptr));
         std::size_t memcopy_offset = 0;
-        for (int i=0; i< all_io_buffers_.size()-1; i++) {
+        std::size_t upload_buffer_num = all_io_buffers_.size()-1;
+        if(all_io_buffers_.size()==1){
+            upload_buffer_num = 1;
+        }
+        for (int i=0; i< upload_buffer_num; i++) {
             if (py::type::of(all_tensor_arrays_[i]) == py::type::of(py::array())) {
                 // std::cout << all_tensor_arrays_.size() << std::endl;
                 py::buffer_info tensor_info = all_tensor_arrays_[i].request();
@@ -77,15 +79,15 @@ public:
         }
     
         auto *ptr = reinterpret_cast<const Half*>(upload_mapped_ptr);
-        // for(int i=0; i<4096*4096 + 4096; i++){
-        //     assert(cast_to_float(ptr[i])==1);
-        //     // printf("upload_mapped_ptr res: %f\n", cast_to_float(ptr[i]));
-        // }
+        for(int i=0; i<3; i++){
+            assert(cast_to_float(ptr[i])==1);
+            printf("upload_mapped_ptr res: %f\n", cast_to_float(ptr[i]));
+        }
         upload_buffer_->Unmap(0, nullptr);
 
-        // add cmd: copy upload buffer to input DX12 buffer 
+        // add cmd: copy upload buffer to INPUT DX12 buffer 
         memcopy_offset = 0;
-        for(int i=0; i< all_io_buffers_.size()-1; i++){
+        for(int i=0; i< upload_buffer_num; i++){
             // std::cout << "all_io_buffers:" << all_io_buffers_.size() << std::endl;
             py::buffer_info buf_info = all_tensor_arrays_[i].request();
             auto buffer_size_in_bytes = buf_info.size * sizeof(MType);
@@ -93,9 +95,9 @@ public:
             memcopy_offset += buffer_size_in_bytes;
         }
 
-        // cmd barries for copy data
+        // cmd barries for copy INPUT data
         std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
-        for(int i=0; i< all_io_buffers_.size()-1; i++){
+        for(int i=0; i< upload_buffer_num; i++){
             // std::cout << all_io_buffers_.size() << std::endl;
             barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(all_io_buffers_[i].Get(),
                             D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
@@ -103,16 +105,21 @@ public:
         cmd_list->ResourceBarrier(static_cast<std::uint32_t>(barriers.size()), barriers.data());
 
         // got root_signature_
-        std::vector<DescType> desc_list = {
-            DescType::eSrv, // input a
-            DescType::eSrv, // input b
-            DescType::eUav  // output
-        };
+        std::vector<DescType> desc_list;
+        
+        // if only one input tensor, this one is both input and output buffer
+        if (all_io_buffers_.size() == 1) { 
+            desc_list.push_back(DescType::eUav);
+        } else if (all_io_buffers_.size() > 1) {
+            for (int i = 0; i < all_io_buffers_.size() - 1; ++i) {
+                desc_list.push_back(DescType::eSrv);
+            }
+            desc_list.push_back(DescType::eUav);
+        }
         root_signature_ = create_root_signature(d3d12_device, desc_list);
 
     }
 
-    // void compile_shader(const char* cm_file, const char* build_options){
     void compile_shader(const std::string &cm_file, const std::string &build_options){
         assert(build_options != "None");
         if (build_options != "None") {
@@ -211,7 +218,7 @@ protected:
 
     size_t get_output_buffer_size() const
     {
-        py::buffer_info buf_info = all_tensor_arrays_.back().request();
+        py::buffer_info buf_info = all_tensor_arrays_.back().request(); // output buffer always last one.
         size_t output_size = buf_info.size * sizeof(MType);
         return output_size;
     }

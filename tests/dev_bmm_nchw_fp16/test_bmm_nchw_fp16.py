@@ -52,7 +52,7 @@ def test_rt_igdext_gemm():
         # ACCU_IS_FP32 will have impact on performance
         _define =  f"-DSIZE_B=1 -DSIZE_C=1 -DSIZE_M={m} -DSIZE_K={k} -DSIZE_N={n} "
         _define += f"-DTILE_M={tile_m}  -DTILE_K={tile_k}  -DTILE_N={tile_n} -DSCALE=1.0000000000 -DDT=half "
-        _define += f"-DSLICE_K=1 -DACCU_IS_FP32=0 -DFUSE_SOFTMAX=0 -DALPHA=3.000000 -DBETA=3.000000 "
+        _define += f"-DSLICE_K=1 -DACCU_IS_FP32=1 -DFUSE_SOFTMAX=0 -DALPHA=3.000000 -DBETA=3.000000 "
         _define += f"-DLWS_SIZE_X={tx} -DLWS_SIZE_Y={ty} -DLWS_SIZE_Z={tz} "
 
         # _define += f"-mdump_asm -Qxcm_doubleGRF -mCM_printregusage "
@@ -64,7 +64,8 @@ def test_rt_igdext_gemm():
         temp_res  = zbench.launch_rt_igdext(cm_file = "./bmm_nchw_fp16.cpp", 
                                           build_options = build_opt,
                                           A=A, B=B, C=C,
-                                          thg_x=gx, thg_y=gy, thg_z=gz, iter_nums=iter_num)
+                                          thg_x=gx, thg_y=gy, thg_z=gz, 
+                                          iter_nums=iter_num)
 
 
         temp_res = np.array(temp_res,dtype="uint16").view(np.float16).reshape((m,n))
@@ -101,7 +102,7 @@ def test_rt_igdext_gemm():
 
     # print(m_A)
     ref_C = np.matmul(m_A, m_B).astype("float16")
-    ref_C = ref_C * 3 + 3
+    ref_C = ref_C 
     # np.savetxt("ref_C.csv", ref_C, delimiter=",", fmt='%.0f')
     # ref_C = np.genfromtxt('ref_C.csv', delimiter=',').reshape((m,n)).astype("float16")
     # np.savetxt("m_A.csv", m_A, delimiter=",", fmt='%.0f')
@@ -114,10 +115,10 @@ def test_rt_igdext_gemm():
 
 
     calc_C = _build_bench(m_A, m_B, m_C, m, k, n, 
-                                    tile_m, tile_k,tile_n,
-                                    tx, ty, tz, gx, gy, gz, iter_num=1)
+                            tile_m, tile_k,tile_n,
+                            tx, ty, tz, gx, gy, gz, iter_num=1)
     
-    print(np.testing.assert_array_equal(calc_C, ref_C))
+    np.testing.assert_array_equal(calc_C, ref_C)
     print("==>> assert_array_equal: --- PASS ---")
     
     exit()

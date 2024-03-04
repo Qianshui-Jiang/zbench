@@ -4,7 +4,6 @@ README.md
 dev_test.cpp
 dev_test.h
 driver_gemm_MADLSC.h
-jit.py
 setup.py
 zbench.cpp
 .vscode/settings.json
@@ -64,16 +63,6 @@ cm_kernels/vxm_test/vxm_test_fp16_dpas_dev.cpp
 cm_kernels/vxm_test/vxm_test_fp16_row_maj.cpp
 cm_kernels/vxm_test/vxm_ut_dpas.cpp
 cm_kernels/vxm_test/vxm_ut_slm.cpp
-flash_att_dev/flash_att_dev.py
-flash_att_dev/padding_utils.py
-flash_att_dev/dummy_qkv/case_rand/S_dmask.pt
-flash_att_dev/dummy_qkv/case_rand/att_out.pt
-flash_att_dev/dummy_qkv/case_rand/qkv_input.pt
-flash_att_dev/dummy_qkv/case_rand/used_params.txt
-flash_att_dev/dummy_qkv/case_sdxl/S_dmask.pt
-flash_att_dev/dummy_qkv/case_sdxl/att_out.pt
-flash_att_dev/dummy_qkv/case_sdxl/qkv_input.pt
-flash_att_dev/dummy_qkv/case_sdxl/used_params.txt
 rt_igdext/cm_dispatcher.h
 rt_igdext/dx12_utils.h
 rt_igdext/layers_utils.h
@@ -86,7 +75,6 @@ tests/test_model_gemm.py
 tests/test_model_gemv.py
 tests/test_model_mha.py
 tests/test_pyopencl.py
-tests/test_rt_igdext.py
 tests/test_zbench_sample.py
 zbench.egg-info/PKG-INFO
 zbench.egg-info/SOURCES.txt

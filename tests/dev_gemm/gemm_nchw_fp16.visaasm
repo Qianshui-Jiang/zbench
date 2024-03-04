@@ -1,0 +1,497 @@
+.version 4.1
+
+.kernel "gemm_nchw_fp16"
+
+/// VISA Predefined Variables
+// .decl V0 v_type=G v_name=%null
+// .decl V1 v_type=G v_name=%thread_x
+// .decl V2 v_type=G v_name=%thread_y
+// .decl V3 v_type=G v_name=%group_id_x
+// .decl V4 v_type=G v_name=%group_id_y
+// .decl V5 v_type=G v_name=%group_id_z
+// .decl V6 v_type=G v_name=%tsc
+// .decl V7 v_type=G v_name=%r0
+// .decl V8 v_type=G v_name=%arg
+// .decl V9 v_type=G v_name=%retval
+// .decl V10 v_type=G v_name=%sp
+// .decl V11 v_type=G v_name=%fp
+// .decl V12 v_type=G v_name=%hw_id
+// .decl V13 v_type=G v_name=%sr0
+// .decl V14 v_type=G v_name=%cr0
+// .decl V15 v_type=G v_name=%ce0
+// .decl V16 v_type=G v_name=%dbg0
+// .decl V17 v_type=G v_name=%color
+// .decl V18 v_type=G v_name=%impl_arg_buf_ptr
+// .decl V19 v_type=G v_name=%local_id_buf_ptr
+// .decl V20 v_type=G v_name=%msg0
+// .decl T0 v_type=T v_name=%slm
+// .decl T1 v_type=T v_name=T1
+// .decl T2 v_type=T v_name=T2
+// .decl T3 v_type=T v_name=TSS
+// .decl T4 v_type=T v_name=%bss
+// .decl T5 v_type=T v_name=%scratch
+
+.decl V32 v_type=G type=w num_elts=3 align=word
+.decl V33 v_type=G type=d num_elts=3 align=dword
+.decl V34 v_type=G type=q num_elts=1 align=qword
+.decl V35 v_type=G type=d num_elts=3 align=dword
+.decl V36 v_type=G type=d num_elts=1 align=dword
+.decl V37 v_type=G type=f num_elts=1 align=dword
+.decl V38 v_type=G type=f num_elts=16 align=GRF
+.decl V39 v_type=G type=d num_elts=1 align=GRF
+.decl V40 v_type=G type=d num_elts=1 align=dword
+.decl V41 v_type=G type=d num_elts=1 align=dword
+.decl V42 v_type=G type=d num_elts=1 align=GRF
+.decl V43 v_type=G type=hf num_elts=32 align=GRF
+.decl V44 v_type=G type=hf num_elts=16 align=GRF
+.decl V45 v_type=G type=f num_elts=16 align=GRF
+.decl V46 v_type=G type=d num_elts=1 align=GRF
+.decl V47 v_type=G type=hf num_elts=16 align=GRF
+.decl V48 v_type=G type=f num_elts=16 align=GRF
+.decl V49 v_type=G type=f num_elts=16 align=GRF
+.decl V50 v_type=G type=f num_elts=16 align=GRF
+.decl V51 v_type=G type=d num_elts=1 align=GRF
+.decl V52 v_type=G type=hf num_elts=16 align=GRF
+.decl V53 v_type=G type=f num_elts=16 align=GRF
+.decl V54 v_type=G type=d num_elts=1 align=GRF
+.decl V55 v_type=G type=hf num_elts=16 align=GRF
+.decl V56 v_type=G type=f num_elts=16 align=GRF
+.decl V57 v_type=G type=f num_elts=16 align=GRF
+.decl V58 v_type=G type=f num_elts=16 align=GRF
+.decl V59 v_type=G type=d num_elts=1 align=GRF
+.decl V60 v_type=G type=hf num_elts=16 align=GRF
+.decl V61 v_type=G type=f num_elts=16 align=GRF
+.decl V62 v_type=G type=d num_elts=1 align=GRF
+.decl V63 v_type=G type=hf num_elts=16 align=GRF
+.decl V64 v_type=G type=f num_elts=16 align=GRF
+.decl V65 v_type=G type=f num_elts=16 align=GRF
+.decl V66 v_type=G type=f num_elts=16 align=GRF
+.decl V67 v_type=G type=d num_elts=1 align=GRF
+.decl V68 v_type=G type=hf num_elts=16 align=GRF
+.decl V69 v_type=G type=f num_elts=16 align=GRF
+.decl V70 v_type=G type=d num_elts=1 align=GRF
+.decl V71 v_type=G type=hf num_elts=16 align=GRF
+.decl V72 v_type=G type=f num_elts=16 align=GRF
+.decl V73 v_type=G type=f num_elts=16 align=GRF
+.decl V74 v_type=G type=f num_elts=16 align=GRF
+.decl V75 v_type=G type=d num_elts=1 align=GRF
+.decl V76 v_type=G type=hf num_elts=16 align=GRF
+.decl V77 v_type=G type=f num_elts=16 align=GRF
+.decl V78 v_type=G type=d num_elts=1 align=GRF
+.decl V79 v_type=G type=hf num_elts=16 align=GRF
+.decl V80 v_type=G type=f num_elts=16 align=GRF
+.decl V81 v_type=G type=f num_elts=16 align=GRF
+.decl V82 v_type=G type=f num_elts=16 align=GRF
+.decl V83 v_type=G type=d num_elts=1 align=GRF
+.decl V84 v_type=G type=hf num_elts=16 align=GRF
+.decl V85 v_type=G type=f num_elts=16 align=GRF
+.decl V86 v_type=G type=d num_elts=1 align=GRF
+.decl V87 v_type=G type=hf num_elts=16 align=GRF
+.decl V88 v_type=G type=f num_elts=16 align=GRF
+.decl V89 v_type=G type=f num_elts=16 align=GRF
+.decl V90 v_type=G type=f num_elts=16 align=GRF
+.decl V91 v_type=G type=d num_elts=1 align=GRF
+.decl V92 v_type=G type=hf num_elts=16 align=GRF
+.decl V93 v_type=G type=f num_elts=16 align=GRF
+.decl V94 v_type=G type=d num_elts=1 align=GRF
+.decl V95 v_type=G type=hf num_elts=16 align=GRF
+.decl V96 v_type=G type=f num_elts=16 align=GRF
+.decl V97 v_type=G type=f num_elts=16 align=GRF
+.decl V98 v_type=G type=f num_elts=16 align=GRF
+.decl V99 v_type=G type=d num_elts=1 align=GRF
+.decl V100 v_type=G type=hf num_elts=16 align=GRF
+.decl V101 v_type=G type=f num_elts=16 align=GRF
+.decl V102 v_type=G type=d num_elts=1 align=GRF
+.decl V103 v_type=G type=hf num_elts=16 align=GRF
+.decl V104 v_type=G type=f num_elts=16 align=GRF
+.decl V105 v_type=G type=f num_elts=16 align=GRF
+.decl V106 v_type=G type=f num_elts=16 align=GRF
+.decl V107 v_type=G type=d num_elts=1 align=GRF
+.decl V108 v_type=G type=hf num_elts=16 align=GRF
+.decl V109 v_type=G type=f num_elts=16 align=GRF
+.decl V110 v_type=G type=d num_elts=1 align=GRF
+.decl V111 v_type=G type=hf num_elts=16 align=GRF
+.decl V112 v_type=G type=f num_elts=16 align=GRF
+.decl V113 v_type=G type=f num_elts=16 align=GRF
+.decl V114 v_type=G type=f num_elts=16 align=GRF
+.decl V115 v_type=G type=d num_elts=1 align=GRF
+.decl V116 v_type=G type=hf num_elts=16 align=GRF
+.decl V117 v_type=G type=f num_elts=16 align=GRF
+.decl V118 v_type=G type=d num_elts=1 align=GRF
+.decl V119 v_type=G type=hf num_elts=16 align=GRF
+.decl V120 v_type=G type=f num_elts=16 align=GRF
+.decl V121 v_type=G type=f num_elts=16 align=GRF
+.decl V122 v_type=G type=f num_elts=16 align=GRF
+.decl V123 v_type=G type=d num_elts=1 align=GRF
+.decl V124 v_type=G type=hf num_elts=16 align=GRF
+.decl V125 v_type=G type=f num_elts=16 align=GRF
+.decl V126 v_type=G type=d num_elts=1 align=GRF
+.decl V127 v_type=G type=hf num_elts=16 align=GRF
+.decl V128 v_type=G type=f num_elts=16 align=GRF
+.decl V129 v_type=G type=f num_elts=16 align=GRF
+.decl V130 v_type=G type=f num_elts=16 align=GRF
+.decl V131 v_type=G type=d num_elts=1 align=GRF
+.decl V132 v_type=G type=hf num_elts=16 align=GRF
+.decl V133 v_type=G type=f num_elts=16 align=GRF
+.decl V134 v_type=G type=d num_elts=1 align=GRF
+.decl V135 v_type=G type=hf num_elts=16 align=GRF
+.decl V136 v_type=G type=f num_elts=16 align=GRF
+.decl V137 v_type=G type=f num_elts=16 align=GRF
+.decl V138 v_type=G type=f num_elts=16 align=GRF
+.decl V139 v_type=G type=d num_elts=1 align=GRF
+.decl V140 v_type=G type=hf num_elts=16 align=GRF
+.decl V141 v_type=G type=f num_elts=16 align=GRF
+.decl V142 v_type=G type=d num_elts=1 align=GRF
+.decl V143 v_type=G type=hf num_elts=16 align=GRF
+.decl V144 v_type=G type=f num_elts=16 align=GRF
+.decl V145 v_type=G type=f num_elts=16 align=GRF
+.decl V146 v_type=G type=f num_elts=16 align=GRF
+.decl V147 v_type=G type=d num_elts=1 align=GRF
+.decl V148 v_type=G type=hf num_elts=16 align=GRF
+.decl V149 v_type=G type=f num_elts=16 align=GRF
+.decl V150 v_type=G type=d num_elts=1 align=GRF
+.decl V151 v_type=G type=hf num_elts=16 align=GRF
+.decl V152 v_type=G type=f num_elts=16 align=GRF
+.decl V153 v_type=G type=f num_elts=16 align=GRF
+.decl V154 v_type=G type=f num_elts=16 align=GRF
+.decl V155 v_type=G type=d num_elts=1 align=GRF
+.decl V156 v_type=G type=hf num_elts=16 align=GRF
+.decl V157 v_type=G type=f num_elts=16 align=GRF
+.decl V158 v_type=G type=d num_elts=1 align=GRF
+.decl V159 v_type=G type=hf num_elts=16 align=GRF
+.decl V160 v_type=G type=f num_elts=16 align=GRF
+.decl V161 v_type=G type=f num_elts=16 align=GRF
+.decl V162 v_type=G type=f num_elts=16 align=GRF
+.decl V163 v_type=G type=d num_elts=1 align=GRF
+.decl V164 v_type=G type=hf num_elts=16 align=GRF
+.decl V165 v_type=G type=f num_elts=16 align=GRF
+.decl V166 v_type=G type=d num_elts=1 align=GRF
+.decl V167 v_type=G type=hf num_elts=16 align=GRF
+.decl V168 v_type=G type=f num_elts=16 align=GRF
+.decl V169 v_type=G type=f num_elts=16 align=GRF
+.decl V170 v_type=G type=d num_elts=1 align=dword
+.decl V171 v_type=G type=d num_elts=1 align=dword
+.decl V172 v_type=G type=d num_elts=1 align=GRF
+.decl V173 v_type=G type=d num_elts=8 align=GRF
+.decl V174 v_type=G type=d num_elts=1 alias=<V170, 0>
+.decl V175 v_type=G type=d num_elts=3 alias=<V33, 0>
+.decl V176 v_type=G type=uw num_elts=3 alias=<V32, 0>
+.decl V177 v_type=G type=d num_elts=3 alias=<V35, 0>
+.decl V178 v_type=G type=d num_elts=1 alias=<V171, 0>
+.decl V179 v_type=G type=d num_elts=1 alias=<V36, 0>
+.decl V180 v_type=G type=d num_elts=1 alias=<V39, 0>
+.decl V181 v_type=G type=d num_elts=1 alias=<V41, 0>
+.decl V182 v_type=G type=d num_elts=1 alias=<V40, 0>
+.decl V183 v_type=G type=d num_elts=1 alias=<V42, 0>
+.decl V184 v_type=G type=d num_elts=16 alias=<V43, 0>
+.decl V185 v_type=G type=ud num_elts=1 alias=<V42, 0>
+.decl V186 v_type=G type=d num_elts=8 alias=<V44, 0>
+.decl V187 v_type=G type=ud num_elts=1 alias=<V39, 0>
+.decl V188 v_type=G type=ud num_elts=1 alias=<V46, 0>
+.decl V189 v_type=G type=d num_elts=8 alias=<V47, 0>
+.decl V190 v_type=G type=ud num_elts=1 alias=<V51, 0>
+.decl V191 v_type=G type=d num_elts=8 alias=<V52, 0>
+.decl V192 v_type=G type=ud num_elts=1 alias=<V54, 0>
+.decl V193 v_type=G type=d num_elts=8 alias=<V55, 0>
+.decl V194 v_type=G type=ud num_elts=1 alias=<V59, 0>
+.decl V195 v_type=G type=d num_elts=8 alias=<V60, 0>
+.decl V196 v_type=G type=ud num_elts=1 alias=<V62, 0>
+.decl V197 v_type=G type=d num_elts=8 alias=<V63, 0>
+.decl V198 v_type=G type=ud num_elts=1 alias=<V67, 0>
+.decl V199 v_type=G type=d num_elts=8 alias=<V68, 0>
+.decl V200 v_type=G type=ud num_elts=1 alias=<V70, 0>
+.decl V201 v_type=G type=d num_elts=8 alias=<V71, 0>
+.decl V202 v_type=G type=ud num_elts=1 alias=<V75, 0>
+.decl V203 v_type=G type=d num_elts=8 alias=<V76, 0>
+.decl V204 v_type=G type=ud num_elts=1 alias=<V78, 0>
+.decl V205 v_type=G type=d num_elts=8 alias=<V79, 0>
+.decl V206 v_type=G type=ud num_elts=1 alias=<V83, 0>
+.decl V207 v_type=G type=d num_elts=8 alias=<V84, 0>
+.decl V208 v_type=G type=ud num_elts=1 alias=<V86, 0>
+.decl V209 v_type=G type=d num_elts=8 alias=<V87, 0>
+.decl V210 v_type=G type=ud num_elts=1 alias=<V91, 0>
+.decl V211 v_type=G type=d num_elts=8 alias=<V92, 0>
+.decl V212 v_type=G type=ud num_elts=1 alias=<V94, 0>
+.decl V213 v_type=G type=d num_elts=8 alias=<V95, 0>
+.decl V214 v_type=G type=ud num_elts=1 alias=<V99, 0>
+.decl V215 v_type=G type=d num_elts=8 alias=<V100, 0>
+.decl V216 v_type=G type=ud num_elts=1 alias=<V102, 0>
+.decl V217 v_type=G type=d num_elts=8 alias=<V103, 0>
+.decl V218 v_type=G type=ud num_elts=1 alias=<V107, 0>
+.decl V219 v_type=G type=d num_elts=8 alias=<V108, 0>
+.decl V220 v_type=G type=ud num_elts=1 alias=<V110, 0>
+.decl V221 v_type=G type=d num_elts=8 alias=<V111, 0>
+.decl V222 v_type=G type=ud num_elts=1 alias=<V115, 0>
+.decl V223 v_type=G type=d num_elts=8 alias=<V116, 0>
+.decl V224 v_type=G type=ud num_elts=1 alias=<V118, 0>
+.decl V225 v_type=G type=d num_elts=8 alias=<V119, 0>
+.decl V226 v_type=G type=ud num_elts=1 alias=<V123, 0>
+.decl V227 v_type=G type=d num_elts=8 alias=<V124, 0>
+.decl V228 v_type=G type=ud num_elts=1 alias=<V126, 0>
+.decl V229 v_type=G type=d num_elts=8 alias=<V127, 0>
+.decl V230 v_type=G type=ud num_elts=1 alias=<V131, 0>
+.decl V231 v_type=G type=d num_elts=8 alias=<V132, 0>
+.decl V232 v_type=G type=ud num_elts=1 alias=<V134, 0>
+.decl V233 v_type=G type=d num_elts=8 alias=<V135, 0>
+.decl V234 v_type=G type=ud num_elts=1 alias=<V139, 0>
+.decl V235 v_type=G type=d num_elts=8 alias=<V140, 0>
+.decl V236 v_type=G type=ud num_elts=1 alias=<V142, 0>
+.decl V237 v_type=G type=d num_elts=8 alias=<V143, 0>
+.decl V238 v_type=G type=ud num_elts=1 alias=<V147, 0>
+.decl V239 v_type=G type=d num_elts=8 alias=<V148, 0>
+.decl V240 v_type=G type=ud num_elts=1 alias=<V150, 0>
+.decl V241 v_type=G type=d num_elts=8 alias=<V151, 0>
+.decl V242 v_type=G type=ud num_elts=1 alias=<V155, 0>
+.decl V243 v_type=G type=d num_elts=8 alias=<V156, 0>
+.decl V244 v_type=G type=ud num_elts=1 alias=<V158, 0>
+.decl V245 v_type=G type=d num_elts=8 alias=<V159, 0>
+.decl V246 v_type=G type=ud num_elts=1 alias=<V163, 0>
+.decl V247 v_type=G type=d num_elts=8 alias=<V164, 0>
+.decl V248 v_type=G type=ud num_elts=1 alias=<V166, 0>
+.decl V249 v_type=G type=d num_elts=8 alias=<V167, 0>
+.decl V250 v_type=G type=d num_elts=1 alias=<V172, 0>
+.decl V251 v_type=G type=hf num_elts=16 alias=<V173, 0>
+.decl V252 v_type=G type=hf num_elts=16 alias=<V173, 0>
+.decl V253 v_type=G type=ud num_elts=1 alias=<V172, 0>
+.decl P1 v_type=P num_elts=1
+.decl T6 v_type=T num_elts=1 v_name=T6
+.decl T7 v_type=T num_elts=1 v_name=T7
+.decl T8 v_type=T num_elts=1 v_name=T8
+.input T6 offset=88 size=4
+.input T7 offset=96 size=4
+.input T8 offset=104 size=4
+.implicit_LOCAL_ID V32 offset=32 size=6
+.implicit_LOCAL_SIZE V33 offset=64 size=12
+.implicit_UNDEFINED_12 V34 offset=80 size=8
+.kernel_attr SLMSize=0
+.kernel_attr PerThreadInputSize=32
+.kernel_attr Target="cm"
+.kernel_attr SimdSize=16
+.kernel_attr NoBarrier    
+
+.function "gemm_nchw_fp16_BB_0"
+gemm_nchw_fp16_BB_0:
+    mov (M1, 1) V170(0,0)<1> %group_id_x(0,0)<0;1,0>                             /// $1
+    mov (M1, 1) V171(0,0)<1> %group_id_y(0,0)<0;1,0>                             /// $2
+    mul (M1, 1) V174(0,0)<1> V174(0,0)<0;1,0> V175(0,0)<0;1,0>                   /// $3
+    mov (M1, 2) V35(0,0)<1> V176(0,0)<1;1,0>                                     /// $4
+    add (M1, 1) V174(0,0)<1> V174(0,0)<0;1,0> V177(0,0)<0;1,0>                   /// $5
+    mul (M1, 1) V178(0,0)<1> V178(0,0)<0;1,0> V175(0,1)<0;1,0>                   /// $6
+    add (M1, 1) V178(0,0)<1> V178(0,0)<0;1,0> V177(0,1)<0;1,0>                   /// $7
+    shl (M1, 1) V179(0,0)<1> V174(0,0)<0;1,0> 0xd:d                              /// $8
+    shl (M1, 1) V180(0,0)<1> V178(0,0)<0;1,0> 0x5:d                              /// $9
+    mov (M1, 1) V37(0,0)<1> 0x0:f                                                /// $10
+    mov (M1, 16) V38(0,0)<1> V37(0,0)<0;1,0>                                     /// $11
+    mov (M1, 1) V40(0,0)<1> 0x0:d                                                /// $12
+
+BB_1:
+    shl (M1, 1) V181(0,0)<1> V182(0,0)<0;1,0> 0x6:d                              /// $14
+    add (M1, 1) V183(0,0)<1> V181(0,0)<0;1,0> V179(0,0)<0;1,0>                   /// $15
+    lifetime.start V184                                                          /// $16
+    lsc_load.ugm.ca.ca (M1, 1)  V184:d32x16t  bti(0x0)[V185]:a32                 /// $17
+    lifetime.start V186                                                          /// $18
+    lsc_load.ugm.ca.ca (M1, 1)  V186:d32x8t  bti(0x1)[V187]:a32                  /// $19
+    mov (M1, 16) V49(0,0)<1> V44(0,0)<1;1,0>                                     /// $20
+    mov (M1, 16) V45(0,0)<1> V43(0,0)<0;1,0>                                     /// $21
+    add (M1, 1) V188(0,0)<1> V187(0,0)<0;1,0> 0x2000:ud                          /// $22
+    lifetime.start V189                                                          /// $23
+    lsc_load.ugm.ca.ca (M1, 1)  V189:d32x8t  bti(0x1)[V188]:a32                  /// $24
+    mov (M1, 16) V50(0,0)<1> V47(0,0)<1;1,0>                                     /// $25
+    mov (M1, 16) V48(0,0)<1> V43(0,1)<0;1,0>                                     /// $26
+    mad (M1, 16) V49(0,0)<1> V49(0,0)<1;1,0> V45(0,0)<1;1,0> V38(0,0)<1;1,0>     /// $27
+    mad (M1, 16) V50(0,0)<1> V50(0,0)<1;1,0> V48(0,0)<1;1,0> V49(0,0)<1;1,0>     /// $28
+    add (M1, 1) V190(0,0)<1> V187(0,0)<0;1,0> 0x4000:ud                          /// $29
+    lifetime.start V191                                                          /// $30
+    lsc_load.ugm.ca.ca (M1, 1)  V191:d32x8t  bti(0x1)[V190]:a32                  /// $31
+    mov (M1, 16) V57(0,0)<1> V52(0,0)<1;1,0>                                     /// $32
+    mov (M1, 16) V53(0,0)<1> V43(0,2)<0;1,0>                                     /// $33
+    add (M1, 1) V192(0,0)<1> V187(0,0)<0;1,0> 0x6000:ud                          /// $34
+    lifetime.start V193                                                          /// $35
+    lsc_load.ugm.ca.ca (M1, 1)  V193:d32x8t  bti(0x1)[V192]:a32                  /// $36
+    mov (M1, 16) V58(0,0)<1> V55(0,0)<1;1,0>                                     /// $37
+    mov (M1, 16) V56(0,0)<1> V43(0,3)<0;1,0>                                     /// $38
+    mad (M1, 16) V57(0,0)<1> V57(0,0)<1;1,0> V53(0,0)<1;1,0> V50(0,0)<1;1,0>     /// $39
+    mad (M1, 16) V58(0,0)<1> V58(0,0)<1;1,0> V56(0,0)<1;1,0> V57(0,0)<1;1,0>     /// $40
+    add (M1, 1) V194(0,0)<1> V187(0,0)<0;1,0> 0x8000:ud                          /// $41
+    lifetime.start V195                                                          /// $42
+    lsc_load.ugm.ca.ca (M1, 1)  V195:d32x8t  bti(0x1)[V194]:a32                  /// $43
+    mov (M1, 16) V65(0,0)<1> V60(0,0)<1;1,0>                                     /// $44
+    mov (M1, 16) V61(0,0)<1> V43(0,4)<0;1,0>                                     /// $45
+    add (M1, 1) V196(0,0)<1> V187(0,0)<0;1,0> 0xa000:ud                          /// $46
+    lifetime.start V197                                                          /// $47
+    lsc_load.ugm.ca.ca (M1, 1)  V197:d32x8t  bti(0x1)[V196]:a32                  /// $48
+    mov (M1, 16) V66(0,0)<1> V63(0,0)<1;1,0>                                     /// $49
+    mov (M1, 16) V64(0,0)<1> V43(0,5)<0;1,0>                                     /// $50
+    mad (M1, 16) V65(0,0)<1> V65(0,0)<1;1,0> V61(0,0)<1;1,0> V58(0,0)<1;1,0>     /// $51
+    mad (M1, 16) V66(0,0)<1> V66(0,0)<1;1,0> V64(0,0)<1;1,0> V65(0,0)<1;1,0>     /// $52
+    add (M1, 1) V198(0,0)<1> V187(0,0)<0;1,0> 0xc000:ud                          /// $53
+    lifetime.start V199                                                          /// $54
+    lsc_load.ugm.ca.ca (M1, 1)  V199:d32x8t  bti(0x1)[V198]:a32                  /// $55
+    mov (M1, 16) V73(0,0)<1> V68(0,0)<1;1,0>                                     /// $56
+    mov (M1, 16) V69(0,0)<1> V43(0,6)<0;1,0>                                     /// $57
+    add (M1, 1) V200(0,0)<1> V187(0,0)<0;1,0> 0xe000:ud                          /// $58
+    lifetime.start V201                                                          /// $59
+    lsc_load.ugm.ca.ca (M1, 1)  V201:d32x8t  bti(0x1)[V200]:a32                  /// $60
+    mov (M1, 16) V74(0,0)<1> V71(0,0)<1;1,0>                                     /// $61
+    mov (M1, 16) V72(0,0)<1> V43(0,7)<0;1,0>                                     /// $62
+    mad (M1, 16) V73(0,0)<1> V73(0,0)<1;1,0> V69(0,0)<1;1,0> V66(0,0)<1;1,0>     /// $63
+    mad (M1, 16) V74(0,0)<1> V74(0,0)<1;1,0> V72(0,0)<1;1,0> V73(0,0)<1;1,0>     /// $64
+    add (M1, 1) V202(0,0)<1> V187(0,0)<0;1,0> 0x10000:ud                         /// $65
+    lifetime.start V203                                                          /// $66
+    lsc_load.ugm.ca.ca (M1, 1)  V203:d32x8t  bti(0x1)[V202]:a32                  /// $67
+    mov (M1, 16) V81(0,0)<1> V76(0,0)<1;1,0>                                     /// $68
+    mov (M1, 16) V77(0,0)<1> V43(0,8)<0;1,0>                                     /// $69
+    add (M1, 1) V204(0,0)<1> V187(0,0)<0;1,0> 0x12000:ud                         /// $70
+    lifetime.start V205                                                          /// $71
+    lsc_load.ugm.ca.ca (M1, 1)  V205:d32x8t  bti(0x1)[V204]:a32                  /// $72
+    mov (M1, 16) V82(0,0)<1> V79(0,0)<1;1,0>                                     /// $73
+    mov (M1, 16) V80(0,0)<1> V43(0,9)<0;1,0>                                     /// $74
+    mad (M1, 16) V81(0,0)<1> V81(0,0)<1;1,0> V77(0,0)<1;1,0> V74(0,0)<1;1,0>     /// $75
+    mad (M1, 16) V82(0,0)<1> V82(0,0)<1;1,0> V80(0,0)<1;1,0> V81(0,0)<1;1,0>     /// $76
+    add (M1, 1) V206(0,0)<1> V187(0,0)<0;1,0> 0x14000:ud                         /// $77
+    lifetime.start V207                                                          /// $78
+    lsc_load.ugm.ca.ca (M1, 1)  V207:d32x8t  bti(0x1)[V206]:a32                  /// $79
+    mov (M1, 16) V89(0,0)<1> V84(0,0)<1;1,0>                                     /// $80
+    mov (M1, 16) V85(0,0)<1> V43(0,10)<0;1,0>                                    /// $81
+    add (M1, 1) V208(0,0)<1> V187(0,0)<0;1,0> 0x16000:ud                         /// $82
+    lifetime.start V209                                                          /// $83
+    lsc_load.ugm.ca.ca (M1, 1)  V209:d32x8t  bti(0x1)[V208]:a32                  /// $84
+    mov (M1, 16) V90(0,0)<1> V87(0,0)<1;1,0>                                     /// $85
+    mov (M1, 16) V88(0,0)<1> V43(0,11)<0;1,0>                                    /// $86
+    mad (M1, 16) V89(0,0)<1> V89(0,0)<1;1,0> V85(0,0)<1;1,0> V82(0,0)<1;1,0>     /// $87
+    mad (M1, 16) V90(0,0)<1> V90(0,0)<1;1,0> V88(0,0)<1;1,0> V89(0,0)<1;1,0>     /// $88
+    add (M1, 1) V210(0,0)<1> V187(0,0)<0;1,0> 0x18000:ud                         /// $89
+    lifetime.start V211                                                          /// $90
+    lsc_load.ugm.ca.ca (M1, 1)  V211:d32x8t  bti(0x1)[V210]:a32                  /// $91
+    mov (M1, 16) V97(0,0)<1> V92(0,0)<1;1,0>                                     /// $92
+    mov (M1, 16) V93(0,0)<1> V43(0,12)<0;1,0>                                    /// $93
+    add (M1, 1) V212(0,0)<1> V187(0,0)<0;1,0> 0x1a000:ud                         /// $94
+    lifetime.start V213                                                          /// $95
+    lsc_load.ugm.ca.ca (M1, 1)  V213:d32x8t  bti(0x1)[V212]:a32                  /// $96
+    mov (M1, 16) V98(0,0)<1> V95(0,0)<1;1,0>                                     /// $97
+    mov (M1, 16) V96(0,0)<1> V43(0,13)<0;1,0>                                    /// $98
+    mad (M1, 16) V97(0,0)<1> V97(0,0)<1;1,0> V93(0,0)<1;1,0> V90(0,0)<1;1,0>     /// $99
+    mad (M1, 16) V98(0,0)<1> V98(0,0)<1;1,0> V96(0,0)<1;1,0> V97(0,0)<1;1,0>     /// $100
+    add (M1, 1) V214(0,0)<1> V187(0,0)<0;1,0> 0x1c000:ud                         /// $101
+    lifetime.start V215                                                          /// $102
+    lsc_load.ugm.ca.ca (M1, 1)  V215:d32x8t  bti(0x1)[V214]:a32                  /// $103
+    mov (M1, 16) V105(0,0)<1> V100(0,0)<1;1,0>                                   /// $104
+    mov (M1, 16) V101(0,0)<1> V43(0,14)<0;1,0>                                   /// $105
+    add (M1, 1) V216(0,0)<1> V187(0,0)<0;1,0> 0x1e000:ud                         /// $106
+    lifetime.start V217                                                          /// $107
+    lsc_load.ugm.ca.ca (M1, 1)  V217:d32x8t  bti(0x1)[V216]:a32                  /// $108
+    mov (M1, 16) V106(0,0)<1> V103(0,0)<1;1,0>                                   /// $109
+    mov (M1, 16) V104(0,0)<1> V43(0,15)<0;1,0>                                   /// $110
+    mad (M1, 16) V105(0,0)<1> V105(0,0)<1;1,0> V101(0,0)<1;1,0> V98(0,0)<1;1,0>  /// $111
+    mad (M1, 16) V106(0,0)<1> V106(0,0)<1;1,0> V104(0,0)<1;1,0> V105(0,0)<1;1,0> /// $112
+    add (M1, 1) V218(0,0)<1> V187(0,0)<0;1,0> 0x20000:ud                         /// $113
+    lifetime.start V219                                                          /// $114
+    lsc_load.ugm.ca.ca (M1, 1)  V219:d32x8t  bti(0x1)[V218]:a32                  /// $115
+    mov (M1, 16) V113(0,0)<1> V108(0,0)<1;1,0>                                   /// $116
+    mov (M1, 16) V109(0,0)<1> V43(1,0)<0;1,0>                                    /// $117
+    add (M1, 1) V220(0,0)<1> V187(0,0)<0;1,0> 0x22000:ud                         /// $118
+    lifetime.start V221                                                          /// $119
+    lsc_load.ugm.ca.ca (M1, 1)  V221:d32x8t  bti(0x1)[V220]:a32                  /// $120
+    mov (M1, 16) V114(0,0)<1> V111(0,0)<1;1,0>                                   /// $121
+    mov (M1, 16) V112(0,0)<1> V43(1,1)<0;1,0>                                    /// $122
+    mad (M1, 16) V113(0,0)<1> V113(0,0)<1;1,0> V109(0,0)<1;1,0> V106(0,0)<1;1,0> /// $123
+    mad (M1, 16) V114(0,0)<1> V114(0,0)<1;1,0> V112(0,0)<1;1,0> V113(0,0)<1;1,0> /// $124
+    add (M1, 1) V222(0,0)<1> V187(0,0)<0;1,0> 0x24000:ud                         /// $125
+    lifetime.start V223                                                          /// $126
+    lsc_load.ugm.ca.ca (M1, 1)  V223:d32x8t  bti(0x1)[V222]:a32                  /// $127
+    mov (M1, 16) V121(0,0)<1> V116(0,0)<1;1,0>                                   /// $128
+    mov (M1, 16) V117(0,0)<1> V43(1,2)<0;1,0>                                    /// $129
+    add (M1, 1) V224(0,0)<1> V187(0,0)<0;1,0> 0x26000:ud                         /// $130
+    lifetime.start V225                                                          /// $131
+    lsc_load.ugm.ca.ca (M1, 1)  V225:d32x8t  bti(0x1)[V224]:a32                  /// $132
+    mov (M1, 16) V122(0,0)<1> V119(0,0)<1;1,0>                                   /// $133
+    mov (M1, 16) V120(0,0)<1> V43(1,3)<0;1,0>                                    /// $134
+    mad (M1, 16) V121(0,0)<1> V121(0,0)<1;1,0> V117(0,0)<1;1,0> V114(0,0)<1;1,0> /// $135
+    mad (M1, 16) V122(0,0)<1> V122(0,0)<1;1,0> V120(0,0)<1;1,0> V121(0,0)<1;1,0> /// $136
+    add (M1, 1) V226(0,0)<1> V187(0,0)<0;1,0> 0x28000:ud                         /// $137
+    lifetime.start V227                                                          /// $138
+    lsc_load.ugm.ca.ca (M1, 1)  V227:d32x8t  bti(0x1)[V226]:a32                  /// $139
+    mov (M1, 16) V129(0,0)<1> V124(0,0)<1;1,0>                                   /// $140
+    mov (M1, 16) V125(0,0)<1> V43(1,4)<0;1,0>                                    /// $141
+    add (M1, 1) V228(0,0)<1> V187(0,0)<0;1,0> 0x2a000:ud                         /// $142
+    lifetime.start V229                                                          /// $143
+    lsc_load.ugm.ca.ca (M1, 1)  V229:d32x8t  bti(0x1)[V228]:a32                  /// $144
+    mov (M1, 16) V130(0,0)<1> V127(0,0)<1;1,0>                                   /// $145
+    mov (M1, 16) V128(0,0)<1> V43(1,5)<0;1,0>                                    /// $146
+    mad (M1, 16) V129(0,0)<1> V129(0,0)<1;1,0> V125(0,0)<1;1,0> V122(0,0)<1;1,0> /// $147
+    mad (M1, 16) V130(0,0)<1> V130(0,0)<1;1,0> V128(0,0)<1;1,0> V129(0,0)<1;1,0> /// $148
+    add (M1, 1) V230(0,0)<1> V187(0,0)<0;1,0> 0x2c000:ud                         /// $149
+    lifetime.start V231                                                          /// $150
+    lsc_load.ugm.ca.ca (M1, 1)  V231:d32x8t  bti(0x1)[V230]:a32                  /// $151
+    mov (M1, 16) V137(0,0)<1> V132(0,0)<1;1,0>                                   /// $152
+    mov (M1, 16) V133(0,0)<1> V43(1,6)<0;1,0>                                    /// $153
+    add (M1, 1) V232(0,0)<1> V187(0,0)<0;1,0> 0x2e000:ud                         /// $154
+    lifetime.start V233                                                          /// $155
+    lsc_load.ugm.ca.ca (M1, 1)  V233:d32x8t  bti(0x1)[V232]:a32                  /// $156
+    mov (M1, 16) V138(0,0)<1> V135(0,0)<1;1,0>                                   /// $157
+    mov (M1, 16) V136(0,0)<1> V43(1,7)<0;1,0>                                    /// $158
+    mad (M1, 16) V137(0,0)<1> V137(0,0)<1;1,0> V133(0,0)<1;1,0> V130(0,0)<1;1,0> /// $159
+    mad (M1, 16) V138(0,0)<1> V138(0,0)<1;1,0> V136(0,0)<1;1,0> V137(0,0)<1;1,0> /// $160
+    add (M1, 1) V234(0,0)<1> V187(0,0)<0;1,0> 0x30000:ud                         /// $161
+    lifetime.start V235                                                          /// $162
+    lsc_load.ugm.ca.ca (M1, 1)  V235:d32x8t  bti(0x1)[V234]:a32                  /// $163
+    mov (M1, 16) V145(0,0)<1> V140(0,0)<1;1,0>                                   /// $164
+    mov (M1, 16) V141(0,0)<1> V43(1,8)<0;1,0>                                    /// $165
+    add (M1, 1) V236(0,0)<1> V187(0,0)<0;1,0> 0x32000:ud                         /// $166
+    lifetime.start V237                                                          /// $167
+    lsc_load.ugm.ca.ca (M1, 1)  V237:d32x8t  bti(0x1)[V236]:a32                  /// $168
+    mov (M1, 16) V146(0,0)<1> V143(0,0)<1;1,0>                                   /// $169
+    mov (M1, 16) V144(0,0)<1> V43(1,9)<0;1,0>                                    /// $170
+    mad (M1, 16) V145(0,0)<1> V145(0,0)<1;1,0> V141(0,0)<1;1,0> V138(0,0)<1;1,0> /// $171
+    mad (M1, 16) V146(0,0)<1> V146(0,0)<1;1,0> V144(0,0)<1;1,0> V145(0,0)<1;1,0> /// $172
+    add (M1, 1) V238(0,0)<1> V187(0,0)<0;1,0> 0x34000:ud                         /// $173
+    lifetime.start V239                                                          /// $174
+    lsc_load.ugm.ca.ca (M1, 1)  V239:d32x8t  bti(0x1)[V238]:a32                  /// $175
+    mov (M1, 16) V153(0,0)<1> V148(0,0)<1;1,0>                                   /// $176
+    mov (M1, 16) V149(0,0)<1> V43(1,10)<0;1,0>                                   /// $177
+    add (M1, 1) V240(0,0)<1> V187(0,0)<0;1,0> 0x36000:ud                         /// $178
+    lifetime.start V241                                                          /// $179
+    lsc_load.ugm.ca.ca (M1, 1)  V241:d32x8t  bti(0x1)[V240]:a32                  /// $180
+    mov (M1, 16) V154(0,0)<1> V151(0,0)<1;1,0>                                   /// $181
+    mov (M1, 16) V152(0,0)<1> V43(1,11)<0;1,0>                                   /// $182
+    mad (M1, 16) V153(0,0)<1> V153(0,0)<1;1,0> V149(0,0)<1;1,0> V146(0,0)<1;1,0> /// $183
+    mad (M1, 16) V154(0,0)<1> V154(0,0)<1;1,0> V152(0,0)<1;1,0> V153(0,0)<1;1,0> /// $184
+    add (M1, 1) V242(0,0)<1> V187(0,0)<0;1,0> 0x38000:ud                         /// $185
+    lifetime.start V243                                                          /// $186
+    lsc_load.ugm.ca.ca (M1, 1)  V243:d32x8t  bti(0x1)[V242]:a32                  /// $187
+    mov (M1, 16) V161(0,0)<1> V156(0,0)<1;1,0>                                   /// $188
+    mov (M1, 16) V157(0,0)<1> V43(1,12)<0;1,0>                                   /// $189
+    add (M1, 1) V244(0,0)<1> V187(0,0)<0;1,0> 0x3a000:ud                         /// $190
+    lifetime.start V245                                                          /// $191
+    lsc_load.ugm.ca.ca (M1, 1)  V245:d32x8t  bti(0x1)[V244]:a32                  /// $192
+    mov (M1, 16) V162(0,0)<1> V159(0,0)<1;1,0>                                   /// $193
+    mov (M1, 16) V160(0,0)<1> V43(1,13)<0;1,0>                                   /// $194
+    mad (M1, 16) V161(0,0)<1> V161(0,0)<1;1,0> V157(0,0)<1;1,0> V154(0,0)<1;1,0> /// $195
+    mad (M1, 16) V162(0,0)<1> V162(0,0)<1;1,0> V160(0,0)<1;1,0> V161(0,0)<1;1,0> /// $196
+    add (M1, 1) V246(0,0)<1> V187(0,0)<0;1,0> 0x3c000:ud                         /// $197
+    lifetime.start V247                                                          /// $198
+    lsc_load.ugm.ca.ca (M1, 1)  V247:d32x8t  bti(0x1)[V246]:a32                  /// $199
+    mov (M1, 16) V169(0,0)<1> V164(0,0)<1;1,0>                                   /// $200
+    mov (M1, 16) V165(0,0)<1> V43(1,14)<0;1,0>                                   /// $201
+    add (M1, 1) V248(0,0)<1> V187(0,0)<0;1,0> 0x3e000:ud                         /// $202
+    lifetime.start V249                                                          /// $203
+    lsc_load.ugm.ca.ca (M1, 1)  V249:d32x8t  bti(0x1)[V248]:a32                  /// $204
+    mov (M1, 16) V38(0,0)<1> V167(0,0)<1;1,0>                                    /// $205
+    mov (M1, 16) V168(0,0)<1> V43(1,15)<0;1,0>                                   /// $206
+    mad (M1, 16) V169(0,0)<1> V169(0,0)<1;1,0> V165(0,0)<1;1,0> V162(0,0)<1;1,0> /// $207
+    mad (M1, 16) V38(0,0)<1> V38(0,0)<1;1,0> V168(0,0)<1;1,0> V169(0,0)<1;1,0>   /// $208
+    add (M1, 1) V187(0,0)<1> V187(0,0)<0;1,0> 0x40000:ud                         /// $209
+    add (M1, 1) V182(0,0)<1> V182(0,0)<0;1,0> 0x1:d                              /// $210
+    cmp.eq (M1, 1) P1 V182(0,0)<0;1,0> 0x80:d                                    /// $211
+    (!P1) jmp (M1, 1) BB_1                                                       /// $212
+    shl (M1, 1) V174(0,0)<1> V174(0,0)<0;1,0> 0xc:d                              /// $213
+    shl (M1, 1) V178(0,0)<1> V178(0,0)<0;1,0> 0x4:d                              /// $214
+    add (M1, 1) V178(0,0)<1> V178(0,0)<0;1,0> V174(0,0)<0;1,0>                   /// $215
+    shl (M1, 1) V250(0,0)<1> V178(0,0)<0;1,0> 0x1:d                              /// $216
+    mov (M1, 16) V251(0,0)<1> V38(0,0)<1;1,0>                                    /// $217
+    add (M1, 16) V252(0,0)<1> V252(0,0)<1;1,0> 0x0:hf                            /// $218
+    lsc_store.ugm.wb.wb (M1, 1)  bti(0x2)[V253]:a32  V173:d32x8t                 /// $219
+    ret (M1, 1)                                                                  /// $220
+
+//Platform: DG2
+//Build option: "-printregusage -TotalGRFNum 256 -output -binary -dumpcommonisa -enableHalfLSC -hasNoInt64Add -fusedCallWA 1 -LSCFenceWA "

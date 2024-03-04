@@ -38,9 +38,9 @@ inline void print_performance_stats(const std::vector<std::chrono::microseconds>
       median = timings_copy[timings_copy.size() / 2];
     }
 
-    std::cout << "Avg: " << avg.count() << std::endl;
-    std::cout << "Median: " << avg.count() << std::endl;
-    std::cout << "Best: " << best.count() << std::endl;
+    std::cout << "Avg: " << avg.count()    << " (us)"<< std::endl;
+    std::cout << "Median: " << avg.count() << " (us)"<< std::endl;
+    std::cout << "Best: " << best.count()  << " (us)"<< std::endl;
 }
 
 
@@ -56,7 +56,19 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
     // constexpr const std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<u_int>();
     std::uint32_t iteration_nums = kwargs["iter_nums"].cast<std::uint32_t>();
     std::vector<MType> result;
+    for (auto item : kwargs) {
 
+        if (py::type::of(item.second) != py::type::of(py::array())) {
+                std::cout << "kwargs: " << item.first
+                << " --> value: " << item.second.str() 
+                << " , type: " << py::type::of(item.second).str()
+                << std::endl; // <class 'numpy.ndarray'>
+            }
+        else{
+                std::cout << "kwargs: " << item.first
+                << " , type: " << py::type::of(item.second).str() << std::endl; // <class 'numpy.ndarray'>
+        }
+        }
     try
     {
         // generic type of layers options
@@ -97,6 +109,7 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
         command_list->SetDescriptorHeaps(1, d3d12_descriptor_heaps);
 
         // Execute & measure the operator on the GPU.
+        std::cout<< "------------------ start executing ------------------" << std::endl;
         for (std::uint32_t i = 0; i < iteration_nums; ++i)
         {
             performance_collector.add_timestamp(command_list.Get());
@@ -105,7 +118,7 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
         }
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
-
+        // Print if Device removal;
         const auto device_remove_reason = d3d12_device->GetDeviceRemovedReason();
         if (device_remove_reason != S_OK) {
           printf("Device removal. Reason: %d\n", device_remove_reason);
@@ -124,6 +137,7 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
         // Perfromance statistic
+        std::cout<< "------------------ Performance data ------------------" << std::endl;
         uint64_t timestamp_frequency = 0;
         command_queue->GetTimestampFrequency(&timestamp_frequency);
         const auto timestamps_timings = get_timestamps_timings_from_ptr<std::chrono::microseconds>(timestamp_frequency, performance_collector.timestamp_readback, performance_collector.timestamp_index);
