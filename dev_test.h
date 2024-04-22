@@ -13,10 +13,8 @@ namespace py = pybind11;
 namespace nl = nlohmann;
 
 int add(int i, int j);
-nl::json test_take_json(const nl::json &json);
-nl::json test_get_json();
 void test_bind(const std::string &mode, const std::string &input,
                const py::args &args, const py::kwargs &kwargs);
+nl::json test_set_json(const nl::json &json);
+nl::json test_get_json();
 
-// void init_ex1(py::module_ &);
-// void init_ex2(py::module_ &);

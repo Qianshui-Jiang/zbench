@@ -54,8 +54,8 @@ extern "C" _GENX_MAIN_ void softmax_nchw(SurfaceIndex surface_inout [[type("buff
 {
 #if LWS_SIZE_X > 1
     // we need to 2 spaces for LWS
-    //  first part:  max value per thread
-    //  second part: sum of the values per thread
+    //  first part:  max value per thread --> (m)
+    //  second part: sum of the exp(x-m_local) values per thread --> (l)
     // we could use single space, but this would require additional barrier which is worse performance
 	cm_slm_init(2 * LWS_SIZE_X_ALIGNED * sizeof(DT_ACCU));
     uint slm_buffer = cm_slm_alloc(2 * LWS_SIZE_X_ALIGNED * sizeof(DT_ACCU));
@@ -107,10 +107,10 @@ extern "C" _GENX_MAIN_ void softmax_nchw(SurfaceIndex surface_inout [[type("buff
 
 	// PASS 2 final output
 	local_output_f32 = local_output_f32 * cm_pow(MATH_E, local_max - global_max); // Calibrate local output
-	// local_output_f32 = local_output_f32 * cm_exp(local_max - global_max); // Calibrate local output
+	// local_output_f32 = local_output_f32 * cm_exp(local_max - global_max); // Calibrate local output use cm_exp
 	local_output_f32 = local_output_f32 * cm_inv(global_sum); // Calculate division to SUM
 #else
-	local_output_f32 = local_output_f32 * cm_inv(local_sum); // Calculate division to SUM
+	local_output_f32 = local_output_f32 * cm_inv(local_sum); // Calculate division to SUM (which is l in flash att)
 #endif
 
 	// cast back to inout data type (FP32->FP16)

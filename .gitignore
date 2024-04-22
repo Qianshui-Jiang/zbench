@@ -3,18 +3,11 @@ build
 3rdparty\dml
 3rdparty\dmlx
 3rdparty\igdext
-ShaderGen
 __pycache__
 *.csv
 *.log
 cm_kernel_output
-vtune_profile
 dist
 zbench.egg-info
-
-cpp_ext_test/cpp/__pycache__
-cpp_ext_test/cpp/build
-cpp_ext_test/cpp/dist
-cpp_ext_test/cpp/lltm_cpp.egg-info
 
 used_cmds.sh

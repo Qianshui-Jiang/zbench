@@ -3,7 +3,6 @@
 README.md
 dev_test.cpp
 dev_test.h
-driver_gemm_MADLSC.h
 setup.py
 zbench.cpp
 .vscode/settings.json

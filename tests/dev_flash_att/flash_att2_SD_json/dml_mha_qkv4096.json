@@ -1,0 +1,51 @@
+{
+    "$schema": "./_schema.json",
+    
+    "resources": 
+    {
+        "stackedQueryKeyValue": 
+        {
+            "initialValuesDataType": "FLOAT16",
+            "initialValues": { "valueCount": 7864320, "min": -0.01, "max": 0.01, "seed": 42 }
+        },
+        "output": 
+        {
+            "initialValuesDataType": "FLOAT16",
+            "initialValues": { "valueCount": 2621440, "value": 0 }
+        }
+    },
+
+    "dispatchables": 
+    {
+        "mha": 
+        {
+            "type": "DML_OPERATOR_MULTIHEAD_ATTENTION",
+            "desc": 
+            {
+                "StackedQueryKeyValueTensor": { "DataType": "FLOAT16", "Sizes": [2,4096,8,3,40] },
+                "OutputTensor": { "DataType": "FLOAT16", "Sizes": [2,4096,320] },
+                "Scale": 0.001,
+                "MaskFilterValue": -10000000,
+                "HeadCount": 8,
+                "MaskType": "DML_MULTIHEAD_ATTENTION_MASK_TYPE_NONE"
+            },
+            "executionFlags":[
+                "DML_EXECUTION_FLAG_ALLOW_HALF_PRECISION_COMPUTATION"
+            ]
+        }
+    },
+
+    "commands": 
+    [
+        {
+            "type": "dispatch",
+            "dispatchable": "mha",
+            "bindings": 
+            {
+                "StackedQueryKeyValueTensor": "stackedQueryKeyValue",
+                "OutputTensor": "output"
+            }
+        },
+		{    "type": "writeFile", "targetPath": "dml_mha_qkv4096.npy", "resource": "output"} 
+    ]
+}

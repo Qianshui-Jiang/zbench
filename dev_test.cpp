@@ -35,7 +35,7 @@ void test_bind(const std::string &mode, const std::string &input,
   }
 }
 
-nl::json test_take_json(const nl::json &j) {
+nl::json test_set_json(const nl::json &j) {
   std::cout << "This function took an nlohmann::json instance as argument: "
             << j << std::endl;
   return j;

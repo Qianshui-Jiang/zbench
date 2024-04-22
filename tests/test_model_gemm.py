@@ -76,5 +76,3 @@ def test_fp16_gemm():
 if __name__ == "__main__":
     source_bin_path = r"C:\Users\12900K\Documents\Engneeing_works\dml_workspace\zbench\cm_kernel_output"
     test_fp16_gemm()
-
-          

@@ -16,13 +16,18 @@ PYBIND11_MODULE(zbench, m)
 {
     m.doc() = "pybind11 testbed for meta commande and CM kernels";
     
-    // dev function/feature test
+    // dev function / feature test
     m.def("add", &add, "A function which adds two numbers", py::arg("i") = 1, py::arg("j") = 2);
     m.def("test_bind", &test_bind, py::arg("mode"), py::arg("input"),"test pybind11 for array transfering");
-    m.def("test_take_json", &test_take_json, "pass py::object to a C++ function that takes an nlohmann::json");
+    m.def("test_set_json", &test_set_json, "pass py::object to a C++ function that takes an nlohmann::json");
     m.def("test_get_json", &test_get_json, "return py::object from a C++ function that returns an nlohmann::json");
 
-//     // sample bench for sgemm cm kernel
+    m.def("launch_rt_igdext", &launch_rt_igdext, "A function which adds two numbers", 
+          py::arg("cm_file") = "gemm_nchw_fp16.cpp",
+          py::arg("build_options") = "None"
+        );
+
+//     // Deprecated sample bench on L0 runtime.
 //     m.def("run_sgemm", &run_sgemm, "A function which adds two numbers", 
 //           py::arg("m") = 1024, py::arg("niterations") = 1,
 //           py::arg("gy") = 1, py::arg("gx") = 4,
@@ -30,7 +35,7 @@ PYBIND11_MODULE(zbench, m)
 //           py::arg("fn_name") = "sgemm_kernel"
 //           );
 
-//     // // sample bench for DPAS bgemm cm kernel
+//     // DPAS bgemm cm kernel
 //     m.def("run_bgemm", &run_bgemm, "A function which adds two numbers", 
 //           py::arg("M") = 128, py::arg("N") = 128,py::arg("K") = 128,
 //           py::arg("threadWidth") = 4, py::arg("threadHeight") = 4,
@@ -52,8 +57,4 @@ PYBIND11_MODULE(zbench, m)
 //           py::arg("fn_name") = "bgemm_dpas"
 //           );
 
-    m.def("launch_rt_igdext", &launch_rt_igdext, "A function which adds two numbers", 
-          py::arg("cm_file") = "gemm_nchw_fp16.cpp",
-          py::arg("build_options") = "None"
-          );
 }

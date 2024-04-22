@@ -1,0 +1,59 @@
+{
+    "$schema": "./_schema.json",
+    
+    "resources": 
+    {
+		"query": 
+        {
+            "initialValues":  { "sourcePath": "./flash_att2_SD_json/tensor_file/q_tile_np_tensor.npy" }
+        },
+        "stackedKeyValue": 
+        {
+            "initialValues": { "sourcePath": "./flash_att2_SD_json/tensor_file/kv_tile_np_tensor.npy" }
+        },
+        "output": 
+        {
+            "initialValuesDataType": "FLOAT16",
+            "initialValues": { "valueCount": 131072, "value": 0 }
+
+        }
+    },
+
+    "dispatchables": 
+    {
+        "mha": 
+        {
+            "type": "DML_OPERATOR_MULTIHEAD_ATTENTION",
+            "desc": 
+            {
+                "QueryTensor": { "DataType": "FLOAT16", "Sizes": [2,64,1280] },
+                "StackedKeyValueTensor": { "DataType": "FLOAT16", "Sizes": [2, 80, 8, 2, 160] },
+                "OutputTensor": { "DataType": "FLOAT16", "Sizes": [2,64,1280] },
+                "Scale": 0.001,
+                "MaskFilterValue": -10000000,
+                "HeadCount": 8,
+                "MaskType": "DML_MULTIHEAD_ATTENTION_MASK_TYPE_NONE"
+            },
+            "executionFlags":[
+                "DML_EXECUTION_FLAG_ALLOW_HALF_PRECISION_COMPUTATION"
+            ]
+        }
+    },
+
+    "commands": 
+    [
+        {
+            "type": "dispatch",
+            "dispatchable": "mha",
+            "bindings": 
+            {
+                "QueryTensor": "query",
+                "StackedKeyValueTensor": "stackedKeyValue",
+                "OutputTensor": "output"
+            }
+        },
+		{    "type": "writeFile", "targetPath": "./flash_att2_SD_json/tensor_file/dml_mha_q_tile.npy", "resource": "query"},
+		{    "type": "writeFile", "targetPath": "./flash_att2_SD_json/tensor_file/dml_mha_kv_tile.npy", "resource": "stackedKeyValue"},
+		{    "type": "writeFile", "targetPath": "./flash_att2_SD_json/tensor_file/dml_mha_q_kv_tile_output.npy", "resource": "output"} 
+    ]
+}
