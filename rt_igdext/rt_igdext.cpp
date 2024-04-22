@@ -48,39 +48,43 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
                                 const py::args &args, const py::kwargs &kwargs) {
 
     assert(kwargs.contains("iter_nums"));
+    std::uint32_t iteration_nums = kwargs["iter_nums"].cast<std::uint32_t>();
+    
+    assert(build_options != "None");
+    std::vector<MType> result;
 
+    std::cout<< "------------------ input files ------------------" << std::endl;
     std::cout<< "---------cm_file: " << cm_file << std::endl;
     std::cout<< "---build_options: " << build_options << std::endl;
     std::cout<< "---iter_nums: " << kwargs["iter_nums"].cast<std::uint32_t>() << std::endl;
-    std::cout<< "------------------ form buffers ------------------" << std::endl;
+    std::cout<< "------------------ input params ------------------" << std::endl;
     // constexpr const std::uint32_t dispatch_iterations = kwargs["iter_nums"].cast<u_int>();
-    std::uint32_t iteration_nums = kwargs["iter_nums"].cast<std::uint32_t>();
-    std::vector<MType> result;
     for (auto item : kwargs) {
-
-        if (py::type::of(item.second) != py::type::of(py::array())) {
-                std::cout << "kwargs: " << item.first
-                << " --> value: " << item.second.str() 
-                << " , type: " << py::type::of(item.second).str()
-                << std::endl; // <class 'numpy.ndarray'>
+        if (py::type::of(item.second) == py::type::of(py::array())) {
+                py::buffer_info buf_info  = py::array_t<MType, py::array::c_style | py::array::forcecast>(kwargs[item.first]).request();
+                py::print( "input_arr:", item.first,
+                          ", shape:" , buf_info.shape,
+                          ", size:" , buf_info.size
+                        );
             }
         else{
                 std::cout << "kwargs: " << item.first
-                << " , type: " << py::type::of(item.second).str() << std::endl; // <class 'numpy.ndarray'>
+                            << " --> value: " << item.second.str() 
+                            << " , type: " << py::type::of(item.second).str() 
+                            << std::endl; // other input args
         }
-        }
+    }
     try
     {
-        // generic type of layers options
-        // specific for implementation
+        // necessary resources for running DML
         ComPtr<ID3D12Device> d3d12_device;
         ComPtr<ID3D12CommandQueue> command_queue;
         ComPtr<ID3D12CommandAllocator> command_allocator;
         ComPtr<ID3D12GraphicsCommandList> command_list;
+
         initalize_d3d12(d3d12_device, command_queue, command_allocator, command_list);
         auto dml_device = create_dml_device(d3d12_device.Get());
         auto performance_collector = initialize_d3d12_performance_collector(d3d12_device.Get(), iteration_nums);
-
         auto intel_extension_d3d12 = IntelExtension(d3d12_device.Get());
 
         // The command recorder is a stateless object that records Dispatches into an existing Direct3D 12 command list.
@@ -89,11 +93,12 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
 
 
         std::unique_ptr<NodeDispatcher> node;
+        // CmDispatcher is the core instancess for launch a CM kernel
         node = std::make_unique<CmDispatcher>(intel_extension_d3d12, d3d12_device.Get(), dml_device.Get(), 
                                             dml_command_recorder.Get(), command_list.Get(), args, kwargs);
-
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
         node->compile_shader(cm_file, build_options);
+
 
         // bind descriptor heap
         const auto descriptors_count = node->get_total_descriptor_count();
@@ -109,13 +114,14 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
         command_list->SetDescriptorHeaps(1, d3d12_descriptor_heaps);
 
         // Execute & measure the operator on the GPU.
-        std::cout<< "------------------ start executing ------------------" << std::endl;
+        std::cout<< "------------------ Start executing ------------------" << std::endl;
         for (std::uint32_t i = 0; i < iteration_nums; ++i)
         {
             performance_collector.add_timestamp(command_list.Get());
             node->execute(command_list.Get());
             performance_collector.add_timestamp(command_list.Get());
         }
+        std::cout<< "------------------ Finish executing ------------------" << std::endl;
         close_execute_reset_wait(d3d12_device.Get(), command_queue.Get(), command_allocator.Get(), command_list.Get());
 
         // Print if Device removal;
@@ -124,6 +130,7 @@ std::vector<MType> launch_rt_igdext(const std::string &cm_file, const std::strin
           printf("Device removal. Reason: %d\n", device_remove_reason);
         }
 
+        // Copy the output buffer out
         result = node->get_output_vector(command_queue.Get(), command_allocator.Get(), command_list.Get());
 
         // Copy the timing data back

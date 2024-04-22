@@ -56,7 +56,7 @@ public:
                     d3d12_device, buffer_size_in_bytes, D3D12_HEAP_TYPE_DEFAULT,
                     D3D12_RESOURCE_STATE_COPY_DEST,
                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-                printf("tensor input [%d]: %d bytes\n", i, buffer_size_in_bytes);
+                // printf("tensor input [%d]: %d bytes\n", i, buffer_size_in_bytes);
             }
         }
 
@@ -65,7 +65,7 @@ public:
         upload_buffer_->Map(0, nullptr, reinterpret_cast<void**>(&upload_mapped_ptr));
         std::size_t memcopy_offset = 0;
         std::size_t upload_buffer_num = all_io_buffers_.size()-1;
-        if(all_io_buffers_.size()==1){
+        if(all_io_buffers_.size()==1){ // if only 1 io buffer, such as softmax kernel
             upload_buffer_num = 1;
         }
         for (int i=0; i< upload_buffer_num; i++) {
@@ -79,10 +79,10 @@ public:
         }
     
         auto *ptr = reinterpret_cast<const Half*>(upload_mapped_ptr);
-        for(int i=0; i<3; i++){
-            assert(cast_to_float(ptr[i])==1);
-            printf("upload_mapped_ptr res: %f\n", cast_to_float(ptr[i]));
-        }
+        // for(int i=0; i<3; i++){
+        //     assert(cast_to_float(ptr[i])==1);
+        //     printf("upload_mapped_ptr data %d: %f\n", i, cast_to_float(ptr[i]));
+        // }
         upload_buffer_->Unmap(0, nullptr);
 
         // add cmd: copy upload buffer to INPUT DX12 buffer 
@@ -107,7 +107,7 @@ public:
         // got root_signature_
         std::vector<DescType> desc_list;
         
-        // if only one input tensor, this one is both input and output buffer
+        // if only one input tensor, this one is both input and output buffer, e.g. softmax shader
         if (all_io_buffers_.size() == 1) { 
             desc_list.push_back(DescType::eUav);
         } else if (all_io_buffers_.size() > 1) {
@@ -122,9 +122,6 @@ public:
 
     void compile_shader(const std::string &cm_file, const std::string &build_options){
         assert(build_options != "None");
-        if (build_options != "None") {
-            std::cout << "build options: " << build_options << std::endl;
-        }
 
         auto kernel_source_content = [&]()
         {
@@ -152,6 +149,7 @@ public:
     {
         std::vector<std::pair<DescType, ID3D12Resource*>> resources_list;
         resources_list.reserve(get_total_descriptor_count());
+        // TODO: if all_io_buffers==1, would be error here?
         for(int i=0; i< all_io_buffers_.size()-1; i++){
             resources_list.push_back({ DescType::eSrv, all_io_buffers_[i].Get() });
         }
@@ -210,7 +208,7 @@ public:
     }
 
 protected:
-    std::uint32_t get_total_descriptor_count() override
+    size_t get_total_descriptor_count() override
     {
         // input_a, input_b, output
         return all_io_buffers_.size();
@@ -232,7 +230,7 @@ private:
     std::vector<ComPtr<ID3D12Resource>> all_io_buffers_;
     std::vector<py::array_t<MType, py::array::c_style | py::array::forcecast>> all_tensor_arrays_;
 
-    // ---------------------------------
+    // ------Dispatching group size----
     u_int thg_x_;
     u_int thg_y_;
     u_int thg_z_;

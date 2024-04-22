@@ -14,7 +14,7 @@
 
 PYBIND11_MODULE(zbench, m)
 {
-    m.doc() = "pybind11 testbed for meta commande and CM kernels";
+    m.doc() = "pybind11 testbed based on d3d12 for CM kernels";
     
     // dev function / feature test
     m.def("add", &add, "A function which adds two numbers", py::arg("i") = 1, py::arg("j") = 2);

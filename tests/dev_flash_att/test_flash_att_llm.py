@@ -672,7 +672,7 @@ def test_flash_decoding_llama2_split_kv():
         temp_res  = zbench.launch_rt_igdext(cm_file = "./dev_flash_decoding_split_kv.cpp", 
                                             build_options = build_opt,
                                             input_q=q, input_k=k, input_v=v, output_c = output_C,
-                                            thg_x=int(gx/tx), thg_y=int(gy/ty), thg_z=int(gz/tz), 
+                                            thg_x=int(gx/tx), thg_y=int(gy/ty), thg_z=int(gz/tz), # for dispatching
                                             iter_nums=iter_num)
 
         temp_res = np.array(temp_res,dtype="uint16").view(np.float16).reshape(q.shape)

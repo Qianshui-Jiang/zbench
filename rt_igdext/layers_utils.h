@@ -31,7 +31,7 @@ enum class DescType
 class NodeDispatcher
 {
 public:
-    virtual std::uint32_t get_total_descriptor_count() = 0;
+    virtual size_t get_total_descriptor_count() = 0;
 
     virtual void initialize(ID3D12GraphicsCommandList* cmd_list, 
                             D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, 
