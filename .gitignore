@@ -1,0 +1,13 @@
+build
+3rdparty\d3dx12
+3rdparty\dml
+3rdparty\dmlx
+3rdparty\igdext
+__pycache__
+cm_kernel_output
+dist
+zbench.egg-info
+
+*.csv
+*.log
+*.npy
