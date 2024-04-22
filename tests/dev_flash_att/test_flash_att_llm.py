@@ -362,8 +362,8 @@ def test_flash_decoding_llama2_split_kv():
 
 
 if __name__ == "__main__":
-    test_flash_decoding_small_shape()
+    # test_flash_decoding_small_shape()
     # test_flash_decoding_llama2_shape()
     # test_flash_decoding_small_split_kv()
-    # test_flash_decoding_llama2_split_kv()
+    test_flash_decoding_llama2_split_kv()
 

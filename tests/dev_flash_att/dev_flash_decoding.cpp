@@ -1,19 +1,3 @@
-/*========================== begin_copyright_notice ============================
-
-INTEL CONFIDENTIAL
-
-Copyright (C) 2023 Intel Corporation
-
-This software and the related documents are Intel copyrighted materials,
-and your use of them is governed by the express license under which they were
-provided to you ("License"). Unless the License provides otherwise,
-you may not use, modify, copy, publish, distribute, disclose or transmit this
-software or the related documents without Intel's prior written permission.
-
-This software and the related documents are provided as is, with no express or
-implied warranties, other than those that are expressly stated in the License.
-
-============================= end_copyright_notice ===========================*/
 #include <cm/cm.h>
 #include <cm/cmtl.h>
 
@@ -37,11 +21,6 @@ implied warranties, other than those that are expressly stated in the License.
 // #define TILE_KV
 // #define TILE_HEAD
 // #define HEAD_SCALE 
-
-#define ITEMNUM_PER_HW_PACKED ((ITEMNUM_PER_HW * sizeof(DT))/sizeof(uint32_t))
-
-// 使用FP16来进行acc的中间计算，
-// SUM如何避免一些iteration，如何更好地使用vactorization来进行相关
 
 extern "C" _GENX_MAIN_ void flash_decoding(
 		SurfaceIndex surface_input_q [[type("buffer_t half")]],

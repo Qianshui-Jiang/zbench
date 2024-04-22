@@ -1,19 +1,3 @@
-/*========================== begin_copyright_notice ============================
-
-INTEL CONFIDENTIAL
-
-Copyright (C) 2023 Intel Corporation
-
-This software and the related documents are Intel copyrighted materials,
-and your use of them is governed by the express license under which they were
-provided to you ("License"). Unless the License provides otherwise,
-you may not use, modify, copy, publish, distribute, disclose or transmit this
-software or the related documents without Intel's prior written permission.
-
-This software and the related documents are provided as is, with no express or
-implied warranties, other than those that are expressly stated in the License.
-
-============================= end_copyright_notice ===========================*/
 #include <cm/cm.h>
 #include <cm/cmtl.h>
 
@@ -40,8 +24,6 @@ implied warranties, other than those that are expressly stated in the License.
 
 #define LD_ST_SIZE ((HEAD_DIM * sizeof(DT))/sizeof(uint32_t))
 
-// 使用FP16来进行acc的中间计算，
-// SUM如何避免一些iteration，如何更好地使用vactorization来进行相关
 // simplified matmul by cm_mul
 extern "C" _GENX_MAIN_ void flash_decoding(
 		SurfaceIndex surface_input_q [[type("buffer_t half")]],
@@ -94,8 +76,8 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 	DT_ACCU m_cur;      // m --> max
 	DT_ACCU f = 0;      // f --> exp(m_prev - m_cur); 
 	DT_ACCU l_prev = 0;	// l --> sum of exp(Xi-m)
-	DT_ACCU l_cur;	// l --> sum of exp(Xi-m)
-	DT_ACCU l_rcp;	// l --> sum of exp(Xi-m)
+	DT_ACCU l_cur;	    // l --> sum of exp(Xi-m)
+	DT_ACCU l_rcp;	    // l --> sum of exp(Xi-m)
 	vector<DT_ACCU, HEAD_DIM> acc(0);
 
 	uint32_t q_offset = (global_x * Q_SEQ_LEN * HEAD_DIM + global_y * TILE_Q * HEAD_DIM) * sizeof(DT) ;

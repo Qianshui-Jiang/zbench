@@ -47,8 +47,6 @@ def gen_small_input_npy_buffer_flash_decoding(dst_path = None):
     q_tensor = np.random.uniform(0, 1, q_shape).astype("float16")
     k_tensor = np.random.uniform(0, 1, k_shape).astype("float16")
     v_tensor = np.random.uniform(0, 1, v_shape).astype("float16")
-    output_tensor = np.zeros(output_shape)
-    output_tensor = np.ones(output_shape) * 0
 
     # q_tensor = np.ones(q_shape).astype("float16")
     # k_tensor = np.ones(k_shape).astype("float16")
@@ -57,12 +55,10 @@ def gen_small_input_npy_buffer_flash_decoding(dst_path = None):
     np.save(os.path.join(dst_path, "q_tensor_small.npy"), q_tensor)
     np.save(os.path.join(dst_path, "k_tensor_small.npy"), k_tensor)
     np.save(os.path.join(dst_path, "v_tensor_small.npy"), v_tensor)
-    np.save(os.path.join(dst_path, "output_tensor_small.npy"), output_tensor)
     
     q_tensor = np.load(os.path.join(dst_path, "q_tensor_small.npy"))
     k_tensor = np.load(os.path.join(dst_path, "k_tensor_small.npy"))
     v_tensor = np.load(os.path.join(dst_path, "v_tensor_small.npy"))
-    outout_tensor = np.load(os.path.join(dst_path, "output_tensor_small.npy"))
 
 
 def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
@@ -74,8 +70,6 @@ def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
     q_tensor = np.random.uniform(-1, 1, q_shape).astype("float16")
     k_tensor = np.random.uniform(-1, 1, k_shape).astype("float16")
     v_tensor = np.random.uniform(-1, 1, v_shape).astype("float16")
-    output_tensor = np.zeros(output_shape)
-    output_tensor = np.ones(output_shape) * 0
 
     # q_tensor = np.ones(q_shape).astype("float16")
     # k_tensor = np.ones(k_shape).astype("float16")
@@ -84,25 +78,22 @@ def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
     np.save(os.path.join(dst_path, "q_tensor.npy"), q_tensor)
     np.save(os.path.join(dst_path, "k_tensor.npy"), k_tensor)
     np.save(os.path.join(dst_path, "v_tensor.npy"), v_tensor)
-    np.save(os.path.join(dst_path, "output_tensor.npy"), output_tensor)
 
     # test loading
     q_tensor = np.load(os.path.join(dst_path, "q_tensor.npy"))
     k_tensor = np.load(os.path.join(dst_path, "k_tensor.npy"))
     v_tensor = np.load(os.path.join(dst_path, "v_tensor.npy"))
-    outout_tensor = np.load(os.path.join(dst_path, "output_tensor.npy"))
 
 
 if __name__ == "__main__":
-    # mha_json = "./mha_json/dml_mha_q_kv64.json"
-    # mha_json = "./dml_gemm_llama2.json"
+
 
     # small shape test 
-    # gen_small_input_npy_buffer_flash_decoding(dst_path = "./flash_decoding_json")
-    # mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
-    # launch_dxdispatch(mha_json)
+    gen_small_input_npy_buffer_flash_decoding(dst_path = "./flash_decoding_json")
+    mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
+    launch_dxdispatch(mha_json)
 
-
+    # LLAMA2 shape test 
     gen_llama2_input_npy_buffer_flash_decoding(dst_path = "./flash_decoding_json")
     mha_json = "./flash_decoding_json/dml_mha_q_k_v2048.json"
     launch_dxdispatch(mha_json)
