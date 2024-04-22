@@ -12,7 +12,7 @@ zbench:  A simple CM kernel launchpad
 - Assign the iteration numbers by `iter_nums`, and usually put it in the last arg of  `launch_rt_igdext()`
 - For more information, please find out the examples in `zbench/tests`:
 
-## Build from source
+## Option1. Build from source
 
 1. you need have oneAPI base toolkit installed in your windows machine. after installed, you can find `setvars.bat` in your oneAPI target path, and run following cmd in your terminal shell:
 
@@ -54,7 +54,7 @@ zbench:  A simple CM kernel launchpad
 
    the wheel files would be exists in folder `zbench/dist`
 
-## Install already built python wheel directly
+## Option2. Install already built python wheel directly
 
 
 1. create a python environment(here using conda), and activate it: 
