@@ -6,7 +6,7 @@ import numpy as np
 np.random.seed(123)
 
 
-dxdispatch = r"DxDispatchRelWithDebInfo\dxdispatch.exe"
+dxdispatch = r"dev_flash_att\DxDispatchRelWithDebInfo\dxdispatch.exe"
 
 
 def launch_dxdispatch(input_file):
