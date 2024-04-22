@@ -197,8 +197,8 @@ public:
         std::vector<MType> result(reinterpret_cast<MType*>(data_out.data()), reinterpret_cast<MType*>(data_out.data() + data_out.size()));
         const auto* gpu_typed_result = reinterpret_cast<const Half*>(data_out.data());
 
-        // compare results
-        printf("gpu res: %f\n", cast_to_float(gpu_typed_result[0]));
+        // // validate results
+        // printf("gpu res: %f\n", cast_to_float(gpu_typed_result[0]));
         // for (std::uint32_t i = 0; i < data_out.size() / sizeof(Half); i+=2)
         // {
         //     printf("gpu res[%d]: %f\n", i, cast_to_float(gpu_typed_result[i]));
