@@ -15,51 +15,6 @@ def launch_dxdispatch(input_file):
     os.system(cmd_launch)
 
 
-def gen_temp_json_from(template_json = None):
-    
-    dst_path = os.path.dirname(template_json)
-    print(f"==>> dst_path: {dst_path}")
-    with open("dml_gemm.json", 'r') as f:
-        data = json.load(f)
-
-    q_shape = [1, 32, 1, 128]
-    k_shape = [1, 32, 2048, 128]
-    v_shape = [1, 32, 2048, 128]
-    output_shape = [1, 32, 1, 128]
-
-
-    # Setup shapes
-    data['dispatchables']['mha']['desc']['QueryTensor']['Sizes'] = q_shape
-    data['dispatchables']['mha']['desc']['KeyTensor']['Sizes'] = k_shape
-    data['dispatchables']['mha']['desc']['ValueTensor']['Sizes'] = v_shape
-    data['dispatchables']['mha']['desc']['OutputTensor']['Sizes'] = output_shape
-
-    with open(os.path.join(dst_path, "tmp_dml_MHA.json"), 'w') as f:
-        json.dump(data, f)
-
-
-def gen_small_input_npy_buffer_flash_decoding(dst_path = None):
-    q_shape = [1, 4, 1, 8]
-    k_shape = [1, 4, 16, 8]
-    v_shape = [1, 4, 16, 8]
-    output_shape = [1, 4, 1, 8]
-
-    q_tensor = np.random.uniform(0, 1, q_shape).astype("float16")
-    k_tensor = np.random.uniform(0, 1, k_shape).astype("float16")
-    v_tensor = np.random.uniform(0, 1, v_shape).astype("float16")
-
-    # q_tensor = np.ones(q_shape).astype("float16")
-    # k_tensor = np.ones(k_shape).astype("float16")
-    # v_tensor = np.ones(v_shape).astype("float16")
-
-    np.save(os.path.join(dst_path, "q_tensor_small.npy"), q_tensor)
-    np.save(os.path.join(dst_path, "k_tensor_small.npy"), k_tensor)
-    np.save(os.path.join(dst_path, "v_tensor_small.npy"), v_tensor)
-    
-    q_tensor = np.load(os.path.join(dst_path, "q_tensor_small.npy"))
-    k_tensor = np.load(os.path.join(dst_path, "k_tensor_small.npy"))
-    v_tensor = np.load(os.path.join(dst_path, "v_tensor_small.npy"))
-
 
 def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
     q_shape = [1, 32, 1, 128]
@@ -84,17 +39,51 @@ def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
     k_tensor = np.load(os.path.join(dst_path, "k_tensor.npy"))
     v_tensor = np.load(os.path.join(dst_path, "v_tensor.npy"))
 
+    
+def gen_q_k_v_input(input_json = None):
+    with open(input_json, 'r') as f:
+        data = json.load(f)
+
+    q_name  = data['resources']['query']['initialValues']['sourcePath']
+    q_shape =  data['dispatchables']['mha']['desc']['QueryTensor']['Sizes']
+    print(f"==>> q_name: {q_name},  q_shape: {q_shape}")
+    
+    k_name  = data['resources']['key']['initialValues']['sourcePath']
+    k_shape =  data['dispatchables']['mha']['desc']['KeyTensor']['Sizes']
+    print(f"==>> k_name: {k_name},  k_shape: {k_shape}")
+    
+    v_name  = data['resources']['value']['initialValues']['sourcePath']
+    v_shape =  data['dispatchables']['mha']['desc']['ValueTensor']['Sizes']
+    print(f"==>> v_name: {v_name},  v_shape: {v_shape}")
+    q_tensor = np.random.uniform(-1, 1, q_shape).astype("float16")
+    k_tensor = np.random.uniform(-1, 1, k_shape).astype("float16")
+    v_tensor = np.random.uniform(-1, 1, v_shape).astype("float16")
+    # qkv_tensor = np.ones(q_shape).astype("float16")
+
+    dst_path = os.path.dirname(q_name)
+    print(f"==>> dst_path: {dst_path}")
+    if not os.path.exists(dst_path):
+        os.makedirs(dst_path)
+    
+    np.save(q_name, q_tensor)
+    np.save(k_name, k_tensor)
+    np.save(v_name, v_tensor)
+    # q_tensor = np.load(q_name)
+    # k_tensor = np.load(k_name)
+    # v_tensor = np.load(v_name)
+
+        
+        
 
 if __name__ == "__main__":
 
-
     # small shape test 
-    gen_small_input_npy_buffer_flash_decoding(dst_path = "./flash_decoding_json")
-    mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
-    launch_dxdispatch(mha_json)
+    # mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
+    # gen_q_k_v_input(input_json = mha_json)
+    # launch_dxdispatch(mha_json)
 
     # LLAMA2 shape test 
-    gen_llama2_input_npy_buffer_flash_decoding(dst_path = "./flash_decoding_json")
-    mha_json = "./flash_decoding_json/dml_mha_q_k_v2048.json"
-    launch_dxdispatch(mha_json)
+    # mha_json = "./flash_decoding_json/dml_mha_q_k_v2048.json"
+    # gen_q_k_v_input(input_json = mha_json)
+    # launch_dxdispatch(mha_json)
 

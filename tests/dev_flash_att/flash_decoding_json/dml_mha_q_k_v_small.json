@@ -5,15 +5,15 @@
     {
 		"query": 
         {
-            "initialValues": { "sourcePath": "./flash_decoding_json/q_tensor_small.npy" }
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/q_tensor_small.npy" }
         },
         "key": 
         {
-            "initialValues": { "sourcePath": "./flash_decoding_json/k_tensor_small.npy" }
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/k_tensor_small.npy" }
         },
         "value": 
         {
-            "initialValues": { "sourcePath": "./flash_decoding_json/v_tensor_small.npy" }
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/v_tensor_small.npy" }
         },
         "output": 
         {
@@ -57,9 +57,9 @@
                 "OutputTensor": "output"
             }
         },
-		{    "type": "writeFile", "targetPath": "./flash_decoding_json/dml_mha_q_k_v_small_query.npy", "resource": "query"},
-		{    "type": "writeFile", "targetPath": "./flash_decoding_json/dml_mha_q_k_v_small_key.npy", "resource": "key"},
-		{    "type": "writeFile", "targetPath": "./flash_decoding_json/dml_mha_q_k_v_small_value.npy", "resource": "value"},
-		{    "type": "writeFile", "targetPath": "./flash_decoding_json/dml_mha_q_k_v_small_output.npy", "resource": "output"} 
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v_small_query.npy", "resource": "query"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v_small_key.npy", "resource": "key"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v_small_value.npy", "resource": "value"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v_small_output.npy", "resource": "output"} 
     ]
 }
