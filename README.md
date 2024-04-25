@@ -31,7 +31,7 @@ zbench:  A simple CM kernel launchpad
 3. clone the repo:
 
    ```
-   git clone
+   git clone https://github.com/Qianshui-Jiang/zbench
    git submodule init
    git submodule update 
    ```
