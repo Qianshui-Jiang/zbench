@@ -40,7 +40,7 @@ def gen_llama2_input_npy_buffer_flash_decoding(dst_path = None):
     v_tensor = np.load(os.path.join(dst_path, "v_tensor.npy"))
 
     
-def gen_q_k_v_input(input_json = None):
+def gen_q_k_v_input(input_json = None, past=False, present=False):
     with open(input_json, 'r') as f:
         data = json.load(f)
 
@@ -71,16 +71,53 @@ def gen_q_k_v_input(input_json = None):
     # q_tensor = np.load(q_name)
     # k_tensor = np.load(k_name)
     # v_tensor = np.load(v_name)
+    
+    if present:
+        kp_name  = data['resources']['key_present']['initialValues']['sourcePath']
+        kp_shape =  data['dispatchables']['mha']['desc']['KeyTensor']['Sizes']
+        print(f"==>> k_name: {kp_name},  k_shape: {kp_shape}")
+        
+        vp_name  = data['resources']['value_present']['initialValues']['sourcePath']
+        vp_shape =  data['dispatchables']['mha']['desc']['ValueTensor']['Sizes']
+        print(f"==>> v_name: {vp_name},  v_shape: {vp_shape}")
 
+        kp_tensor = np.random.uniform(-1, 1, kp_shape).astype("float16")
+        vp_tensor = np.random.uniform(-1, 1, vp_shape).astype("float16")
+        # qkv_tensor = np.ones(q_shape).astype("float16")
+
+        np.save(kp_name, kp_tensor)
+        np.save(vp_name, vp_tensor)
+    
+    if present:
+        kpast_name  = data['resources']['key_past']['initialValues']['sourcePath']
+        kpast_shape =  data['dispatchables']['mha']['desc']['PastKeyTensor']['Sizes']
+        print(f"==>> k_name: {kpast_name},  k_shape: {kpast_shape}")
+        
+        vpast_name  = data['resources']['value_past']['initialValues']['sourcePath']
+        vpast_shape =  data['dispatchables']['mha']['desc']['PastValueTensor']['Sizes']
+        print(f"==>> v_name: {vpast_name},  v_shape: {vpast_shape}")
+
+        kpast_tensor = np.random.uniform(-1, 1, kp_shape).astype("float16")
+        vpast_tensor = np.random.uniform(-1, 1, vp_shape).astype("float16")
+        # qkv_tensor = np.ones(q_shape).astype("float16")
+
+        np.save(kpast_name, kpast_tensor)
+        np.save(vpast_name, vpast_tensor)
         
         
 
 if __name__ == "__main__":
 
-    # small shape test 
-    # mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
-    # gen_q_k_v_input(input_json = mha_json)
+
+    # # small shape test 
+    # mha_json = "./flash_decoding_json/dml_mha_q_k_v_small_present.json"
+    # gen_q_k_v_input(input_json = mha_json, past=True, present=True)
     # launch_dxdispatch(mha_json)
+    
+    # small shape test 
+    mha_json = "./flash_decoding_json/dml_mha_q_k_v_small.json"
+    gen_q_k_v_input(input_json = mha_json)
+    launch_dxdispatch(mha_json)
 
     # LLAMA2 shape test 
     # mha_json = "./flash_decoding_json/dml_mha_q_k_v2048.json"

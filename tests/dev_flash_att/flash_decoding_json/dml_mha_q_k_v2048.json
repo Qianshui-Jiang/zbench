@@ -29,11 +29,11 @@
             "type": "DML_OPERATOR_MULTIHEAD_ATTENTION",
             "desc": 
             {
-                "QueryTensor": { "DataType": "FLOAT16", "Sizes": [1, 32, 1, 128] },
-                "KeyTensor": { "DataType": "FLOAT16", "Sizes": [1, 32, 2048, 128] },
-                "ValueTensor": { "DataType": "FLOAT16", "Sizes": [1, 32, 2048, 128] },
-                "OutputTensor": { "DataType": "FLOAT16", "Sizes": [1, 32, 1, 128] },
-                "Scale": 0.001,
+                "QueryTensor": { "DataType": "FLOAT16", "Sizes":  [1, 1, 1, 4096] },
+                "KeyTensor": { "DataType": "FLOAT16", "Sizes":    [1, 1, 2048, 4096] },
+                "ValueTensor": { "DataType": "FLOAT16", "Sizes":  [1, 1, 2048, 4096] },
+                "OutputTensor": { "DataType": "FLOAT16", "Sizes": [1, 1, 1, 4096] },
+                "Scale": 0.0883883,
                 "MaskFilterValue": -10000000,
                 "HeadCount": 32,
                 "MaskType": "DML_MULTIHEAD_ATTENTION_MASK_TYPE_NONE"

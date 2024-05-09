@@ -1,8 +1,10 @@
 import torch
 import numpy as np
+f = 1
+h = 8
+t = 16
 
-
-def flash_attention(q, k, v, is_train=False):
+def flash_attention(q, k, v, head_scale=1, is_train=False):
     output = np.zeros(q.shape, dtype=np.float32)
     m = np.zeros(f, dtype=np.float32)
     l = np.zeros(f, dtype=np.float32)
@@ -21,7 +23,7 @@ def flash_attention(q, k, v, is_train=False):
             k_sub = k[start_n: start_n+block_n, :]
             v_sub = v[start_n: start_n+block_n, :]
             qk = np.matmul(q_sub, k_sub.T)
-            qk *= 0.001 #  head_scale
+            qk *= head_scale #  head_scale
             m_cur = np.maximum(np.amax(qk, -1), m_prev)
             l_prev *= np.exp(m_prev - m_cur)
 
@@ -53,7 +55,7 @@ def flash_attention(q, k, v, is_train=False):
     else:
         return output
 
-def flash_attention2(q, k, v, is_train=False):
+def flash_attention2(q, k, v, head_scale=1, is_train=False):
     output = np.zeros(q.shape, dtype=np.float32)
     m = np.zeros(f, dtype=np.float32)
     l = np.zeros(f, dtype=np.float32)
@@ -72,7 +74,7 @@ def flash_attention2(q, k, v, is_train=False):
             k_sub = k[start_n: start_n+block_n, :]
             v_sub = v[start_n: start_n+block_n, :]
             qk = np.matmul(q_sub, k_sub.T)
-            qk *= 0.001 #  head_scale
+            qk *= head_scale #  head_scale
             
             m_cur = np.maximum(np.amax(qk, -1), m_prev)
             l_prev *= np.exp(m_prev - m_cur)
@@ -105,9 +107,9 @@ def flash_attention2(q, k, v, is_train=False):
         return output
 
 
-def naive_attention(q, k, v, is_train=False):
+def naive_attention(q, k, v, head_scale=1, is_train=False):
     score = np.matmul(q, k.T)
-    score *= 0.001 #  head_scale
+    score *= head_scale #  head_scale
     row_max = np.amax(score, -1).reshape(-1, 1)
     row_sum = np.sum(np.exp(score - row_max), -1).reshape(-1, 1)
     prob = np.exp(score - row_max) / row_sum
@@ -120,19 +122,17 @@ def naive_attention(q, k, v, is_train=False):
 
 
 if __name__ == "__main__":
-    f = 16  
-    t = 16  
-    h = 8   
+
 
     q = np.random.random(size=(f, h))
     k = np.random.random(size=(t, h))
     v = np.random.random(size=(t, h))
-        
+
     # q = np.ones((f, h))
     # k = np.ones((t, h))
     # v = np.ones((t, h))
-    
-    
+
+
     desired = naive_attention(q, k, v)
     
     flash_att = flash_attention(q, k, v)
