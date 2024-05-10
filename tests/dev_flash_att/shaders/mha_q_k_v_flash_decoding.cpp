@@ -13,6 +13,7 @@
 // #define SPLIT_KV 32
 
 #define MATH_E 2.718281828459045235360287471352f
+// #define MATH_E 2.71828182845904523536028747135266249775724709369995f
 #define FLOAT_MAX 3.402823466e+38f
 // #define KV_PER_THREAD (KV_SEQ_LEN / SPLIT_KV)
 // #define KV_PER_THREAD 1
@@ -31,8 +32,8 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 		SurfaceIndex surface_input_k        [[type("buffer_t half")]],
 		SurfaceIndex surface_input_v        [[type("buffer_t half")]],
 		SurfaceIndex surface_past_seq_len   [[type("buffer_t half")]],
-		SurfaceIndex surface_output_past_k  [[type("buffer_t half")]],
-		SurfaceIndex surface_output_past_v  [[type("buffer_t half")]],
+		SurfaceIndex surface_output_present_k  [[type("buffer_t half")]],
+		SurfaceIndex surface_output_present_v  [[type("buffer_t half")]],
 		SurfaceIndex surface_output         [[type("buffer_t half")]]
 )
 {
@@ -75,121 +76,21 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 	kv_offset = (global_x) * HEAD_DIM * sizeof(DT) ;
 	output_offset = (global_x * KV_SEQ_LEN + past_seq_len(0)) * HEAD_DIM * sizeof(DT);
 
-	// input_k_packed.row(0)  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
-	// vector_ref<uint32_t, output_store_size> kv_transport = input_k_packed.row(0).format<uint32_t>();
 	input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
 	vector_ref<uint32_t, output_store_size> kv_transport = input_k_packed.format<uint32_t>();
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_past_k, output_offset, kv_transport);
+	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_k, output_offset, kv_transport);
 
-	// input_v_packed.row(0)  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
-	// kv_transport = input_v_packed.row(0).format<uint32_t>();
 	input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
 	kv_transport = input_v_packed.format<uint32_t>();
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_past_v, output_offset, kv_transport);
+	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_v, output_offset, kv_transport);
 
 
-// Main loop of K/v seq_len
-	// for(int j=0; j<past_seq_len(0)/TILE_KV; j++){      // Loop on tiled K/V --> Bc in paper
-	// 	// simplified matmul by cm_mul
-	// 	for(int t_kv=0; t_kv < TILE_KV; t_kv++){  // Load Tile K/V
-	// 		kv_offset = (global_x * KV_SEQ_LEN +  j * TILE_KV  + t_kv) * HEAD_DIM * sizeof(DT) ;
-	// 		input_k_packed.row(t_kv)  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_past_k, kv_offset);
-	// 		input_v_packed.row(t_kv)  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_past_v, kv_offset);
-	// 	}
-
-	// 	// if (global_x == 0 && global_y == 0 && global_z==0)
-	// 	// {	
-	// 	// 	// printf("past_seq_len: %d \n", past_seq_len(0));
-	// 	// 	// printf("input_q_packed :\n");
-	// 	// 	// for (int y = 0; y < HEAD_DIM; y++)
-	// 	// 	// {
-	// 	// 	//		printf("%f, ", input_q(y));
-	// 	// 	// }
-	// 	// 	// printf("\n");
-	// 	// 	if(j<20){
-	// 	// 		printf("after ST input_k j=%d:\n", j);
-	// 	// 		for (int x = 0; x < TILE_KV; x++){
-	// 	// 			for (int y = 0; y < 8; y++)
-	// 	// 			{
-	// 	// 				printf("%f, ", input_k(x, y));
-	// 	// 			}	
-	// 	// 			printf("\n");
-	// 	// 		}
-	// 	// 	}
-
-	// 	// 	// printf("after ST input_v j=%d:\n", j);
-	// 	// 	// for (int x = 0; x < TILE_KV; x++){
-	// 	// 	// 	for (int y = 0; y < 8; y++)
-	// 	// 	// 	{
-	// 	// 	// 		printf("%f, ", input_v(x, y));
-	// 	// 	// 	}	
-	// 	// 	// 	printf("\n");
-	// 	// 	// }
-
-	// 	// 	// printf("global_x : %d \n", global_x);
-	// 	// 	// printf("global_y : %d \n", global_y);
-	// 	// 	// printf("global_z : %d \n", global_z);
-			
-	// 	// 	// printf("Q_SEQ_LEN : %d \n", Q_SEQ_LEN);
-	// 	// 	// printf("KV_SEQ_LEN : %d \n", KV_SEQ_LEN);
-	// 	// 	// // printf("SPLIT_KV : %d \n", SPLIT_KV);
-			
-	// 	// 	// printf("HEAD_DIM : %d \n", HEAD_DIM);
-	// 	// 	// printf("TILE_Q : %d \n", TILE_Q);
-	// 	// 	// printf("TILE_KV : %d \n", TILE_KV);
-	// 	// 	// printf("HEAD_SCALE : %f \n", HEAD_SCALE);
-	// 	// }
-	// 	// Q*K
-	// 	for(int k_idx=0; k_idx<TILE_KV; k_idx ++){
-	// 		vector<DT_ACCU, HEAD_DIM> q_fp32 = vector<DT_ACCU, HEAD_DIM>(input_q);
-	// 		vector<DT_ACCU, HEAD_DIM> k_fp32 = vector<DT_ACCU, HEAD_DIM>(input_k.row(k_idx));
-	// 		// qk(k_idx) =   (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(q_fp32 * k_fp32);
-	// 		qk(k_idx) =   (DT_ACCU)0.0883883 * cm_sum<DT_ACCU>(q_fp32 * k_fp32);
-	// 	}
-
-		
-	// 	m_cur = cm_reduced_max<DT_ACCU>(qk); // lack of max of
-		
-	// 	if(m_prev > m_cur){
-	// 		m_cur = m_prev;
-	// 	}	
-		
-	// 	f = cm_pow(MATH_E, m_prev - m_cur);
-	// 	// f = cm_exp(m_prev - m_cur);
-	// 	l_prev *= f ;
-
-	// 	p =  cm_pow(MATH_E, (qk - m_cur));
-	// 	// p =  cm_exp((qk - m_cur));
-
-	// 	l_cur =  l_prev + cm_sum<DT_ACCU>(p);  // p idx was wight?
-
-	// 	// 1. For flash attention
-	// 	// l_rcp = 1/l_cur;
-	// 	// p *=  l_rcp;  // s
-	// 	// acc *=  (l_prev * l_rcp);
-
-	// 	// 2. For flash attention 2
-	// 	acc *= f ;
-
-	// 	for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
-	// 		vector<DT_ACCU, TILE_KV> s_fp32 = vector<DT_ACCU, TILE_KV>(p); 
-	// 		vector<DT_ACCU, TILE_KV> v_fp32 = vector<DT_ACCU, TILE_KV>(input_v.column(v_idx));
-	// 		acc(v_idx) += cm_sum<DT_ACCU>(s_fp32 * v_fp32);
-	// 	}
-
-	// 	m_prev = m_cur;
-	// 	l_prev = l_cur;
-
-	// }
 // Tail loop of K/v seq_len
 	for(int j=0; j<past_seq_len(0)+1; j++){  // Loop on tiled K/V --> Bc in paper
-	// for(int j=0; j<KV_SEQ_LEN; j++){  // Loop on tiled K/V --> Bc in paper
-	// for(int j=0; j<1; j++){  // Loop on tiled K/V --> Bc in paper
-		// printf("Loop  Q : %d, Loop K/V: %d\n", i, j);
 		kv_offset = (global_x * KV_SEQ_LEN +  j ) * HEAD_DIM * sizeof(DT) ;
 		// kv_offset = (j * TILE_KV  + t_kv + global_x * KV_SEQ_LEN ) * HEAD_DIM * sizeof(DT) ;
-		input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_past_k, kv_offset);
-		input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_past_v, kv_offset);
+		input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_present_k, kv_offset);
+		input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_present_v, kv_offset);
 		// if (global_x == 0 && global_y == 0 && global_z==0)
 		// {	
 		// 	printf("input_k :\n");
@@ -212,9 +113,7 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 		// }
 
 		// Q*K
-		vector<DT_ACCU, HEAD_DIM> q_fp32 = vector<DT_ACCU, HEAD_DIM>(input_q);
-		vector<DT_ACCU, HEAD_DIM> k_fp32 = vector<DT_ACCU, HEAD_DIM>(input_k);
-		qk =  (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(q_fp32 * k_fp32);
+		qk =  (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(input_q * input_k);
 
 		
 		m_cur = qk; // lack of max of
@@ -240,11 +139,13 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 		// 2. For flash attention 2
 		acc *= f ;
 
-		for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
-			vector<DT_ACCU, TILE_KV> s_fp32 = vector<DT_ACCU, TILE_KV>(p); 
-			vector<DT_ACCU, TILE_KV> v_fp32 = vector<DT_ACCU, TILE_KV>(input_v(v_idx));
-			acc(v_idx) += cm_sum<DT_ACCU>(s_fp32 * v_fp32);
-		}
+		// for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
+		// 	vector<DT_ACCU, TILE_KV> s_fp32 = vector<DT_ACCU, TILE_KV>(p); 
+		// 	vector<DT_ACCU, TILE_KV> v_fp32 = vector<DT_ACCU, TILE_KV>(input_v(v_idx));
+		// 	acc(v_idx) += cm_sum<DT_ACCU>(s_fp32 * v_fp32);
+		// }
+		acc += p * input_v;
+
 
 		m_prev = m_cur;
 		l_prev = l_cur;

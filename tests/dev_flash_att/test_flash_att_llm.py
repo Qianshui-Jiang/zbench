@@ -174,7 +174,6 @@ def test_flash_decoding_small_split_kv_tiling():
 def test_flash_decoding_llama2_shape_kv_tiling():
 
     def _build_bench_dev(q, k, v, output_C,
-                        f, t, h,
                         gx, gy, gz,
                         tx, ty, tz,  
                         iter_num):
@@ -213,9 +212,7 @@ def test_flash_decoding_llama2_shape_kv_tiling():
     llama2_v_shape = [1, 1, 2048, 4096]
     llama2_output_shape = llama2_q_shape
     
-    f = 16  
-    t = 16  
-    h = 8   
+
 
     dst_path = "./flash_decoding_json/tensor_file"
     q = np.load(os.path.join(dst_path, "q_tensor.npy")).reshape(llama2_q_shape)
@@ -254,7 +251,6 @@ def test_flash_decoding_llama2_shape_kv_tiling():
     tz=1
     output_C = np.zeros_like(output_ref)
     origin_C = _build_bench_dev(input_buf_q, input_buf_k, input_buf_v, output_C,
-                                f, t, h,
                                 gx, gy, gz, 
                                 tx, ty, tz, 
                                 iter_num=int(1e3))
@@ -268,7 +264,6 @@ def test_flash_decoding_llama2_shape_kv_tiling():
 def test_flash_decoding_llama2_shape_no_kv_tiling():
 
     def _build_bench_dev(q, k, v, output_C,
-                        f, t, h,
                         gx, gy, gz,
                         tx, ty, tz,  
                         iter_num):
@@ -306,9 +301,6 @@ def test_flash_decoding_llama2_shape_no_kv_tiling():
     llama2_v_shape = [1, 1, 2048, 4096]
     llama2_output_shape = llama2_q_shape
     
-    f = 16
-    t = 16
-    h = 8
 
     dst_path = "./flash_decoding_json/tensor_file"
     q = np.load(os.path.join(dst_path, "q_tensor.npy")).reshape(llama2_q_shape)
@@ -347,7 +339,6 @@ def test_flash_decoding_llama2_shape_no_kv_tiling():
     tz=1
     output_C = np.zeros_like(output_ref)
     origin_C = _build_bench_dev(input_buf_q, input_buf_k, input_buf_v, output_C,
-                                f, t, h,
                                 gx, gy, gz, 
                                 tx, ty, tz, 
                                 iter_num=int(1000))
@@ -546,4 +537,3 @@ if __name__ == "__main__":
     # test_flash_decoding_llama2_shape_no_kv_tiling()
     # test_flash_decoding_llama2_split_kv_tiling()
     test_flash_decoding_llama2_split_kv_no_tiling()
-

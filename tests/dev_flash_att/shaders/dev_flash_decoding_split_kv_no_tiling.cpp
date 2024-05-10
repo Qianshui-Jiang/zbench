@@ -5,6 +5,8 @@
 #define DT_ACCU float 
 
 #define MATH_E 2.718281828459045235360287471352f
+// #define MATH_E 2.71828182845904523536028747135266249775724709369995f
+
 #define FLOAT_MAX 3.402823466e+38f
 #define KV_PER_THREAD (KV_SEQ_LEN / SPLIT_KV)
 #define LD_ST_SIZE ((HEAD_DIM * sizeof(DT))/sizeof(DT_ACCU))
@@ -73,7 +75,7 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 
 	DT_ACCU qk;         // 
 	DT_ACCU p;
-	DT_ACCU m_prev= 0 - FLOAT_MAX;;  // m --> max
+	DT_ACCU m_prev= 0 - FLOAT_MAX;  // m --> max
 	DT_ACCU m_cur;      // m --> max
 	DT_ACCU f = 0;      // f --> exp(m_prev - m_cur); 
 	DT_ACCU l_prev = 0;	// l --> sum of exp(Xi-m)
