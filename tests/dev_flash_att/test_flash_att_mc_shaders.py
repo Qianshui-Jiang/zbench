@@ -426,7 +426,7 @@ def test_new_flash_decoding_small_shape():
 
 def test_2nd_token_flash_decoding_mc_shader():
 
-    past_seq_len_value = 256
+    past_seq_len_value = 255
     tile_q = 1
 
     def _build_bench_dev(q, k, v, 
@@ -536,7 +536,7 @@ if __name__ == "__main__":
     # test_sliding_GQA_flash_decoding_mc_shader()
 
     # test_1st_token_flash_decoding_mc_shader_small()
-    # test_1st_token_flash_decoding_mc_shader()
+    test_1st_token_flash_decoding_mc_shader()
     
     # test_new_flash_decoding_small_shape()
     test_2nd_token_flash_decoding_mc_shader()

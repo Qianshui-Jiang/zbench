@@ -94,10 +94,6 @@ def gen_q_k_v_input(input_json = None, is_new=False, past_seq_len = None):
         np.save(present_k_name, present_k_tensor)
         np.save(present_v_name, present_v_tensor)
 
-    # q_tensor = np.load(q_name)
-    # k_tensor = np.load(k_name)
-    # v_tensor = np.load(v_name)
-    
 
 if __name__ == "__main__":
     # # small shape test 
@@ -131,6 +127,6 @@ if __name__ == "__main__":
     # launch_dxdispatch(mha_json)
 
     # # [New MHA] LLAMA2 2nd+ token shape test 
-    # mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_2048.json"
-    # gen_q_k_v_input(input_json = mha_json, is_new = True, past_seq_len = 256)
-    # launch_dxdispatch(mha_json)
+    mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_2048.json"
+    gen_q_k_v_input(input_json = mha_json, is_new = True, past_seq_len = 255)
+    launch_dxdispatch(mha_json)
