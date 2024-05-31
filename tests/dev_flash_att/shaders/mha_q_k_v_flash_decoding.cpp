@@ -13,7 +13,6 @@
 // #define SPLIT_KV 32
 
 #define MATH_E 2.718281828459045235360287471352f
-// #define MATH_E 2.71828182845904523536028747135266249775724709369995f
 #define FLOAT_MAX 3.402823466e+38f
 // #define KV_PER_THREAD (KV_SEQ_LEN / SPLIT_KV)
 // #define KV_PER_THREAD 1
@@ -50,10 +49,8 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 	vector<DT, HEAD_DIM> input_v;
     vector_ref<uint32_t, HEAD_DIM/2> input_v_packed = input_v.format<uint32_t>();
 
-	DT_ACCU qk;         // 
+	DT_ACCU qk;
 	DT_ACCU p;
-
-	// vector<DT_ACCU, SPLIT_KV> calibre_sum_exp;
 	DT_ACCU m_prev= 0 - FLOAT_MAX;  // m --> max
 	DT_ACCU m_cur;      // m --> max
 	DT_ACCU f = 0;      // f --> exp(m_prev - m_cur); 
@@ -67,8 +64,7 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 	uint32_t kv_offset = 0;
 	const uint32_t output_store_size = (HEAD_DIM * sizeof(DT)) / sizeof(uint32_t);
 
-
-	input_q_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_q, threads_offset);
+	input_q_packed = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_q, threads_offset);
 
 	vector<uint32_t,1> past_seq_len = cm_load<uint32_t, 1, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_past_seq_len, 0);
 
@@ -77,57 +73,29 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 	output_offset = (global_x * KV_SEQ_LEN + past_seq_len(0)) * HEAD_DIM * sizeof(DT);
 
 	input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
-	vector_ref<uint32_t, output_store_size> kv_transport = input_k_packed.format<uint32_t>();
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_k, output_offset, kv_transport);
+	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_k, output_offset, input_k_packed);
 
 	input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
-	kv_transport = input_v_packed.format<uint32_t>();
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_v, output_offset, kv_transport);
+	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_v, output_offset, input_v_packed);
 
-
-// Tail loop of K/v seq_len
+	// Main loop of K/v seq_len
+	#pragma unroll
 	for(int j=0; j<past_seq_len(0)+1; j++){  // Loop on tiled K/V --> Bc in paper
 		kv_offset = (global_x * KV_SEQ_LEN +  j ) * HEAD_DIM * sizeof(DT) ;
-		// kv_offset = (j * TILE_KV  + t_kv + global_x * KV_SEQ_LEN ) * HEAD_DIM * sizeof(DT) ;
 		input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_present_k, kv_offset);
 		input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_output_present_v, kv_offset);
-		// if (global_x == 0 && global_y == 0 && global_z==0)
-		// {	
-		// 	printf("input_k :\n");
-		// 	for (int x = 0; x < TILE_KV; x++){
-		// 		for (int y = 0; y < HEAD_DIM; y++)
-		// 		{
-		// 			printf("%f, ", input_k(x, y));
-		// 		}	
-		// 		printf("\n");
-		// 	}
 
-		// 	printf("input_v :\n");
-		// 	for (int x = 0; x < TILE_KV; x++){
-		// 		for (int y = 0; y < HEAD_DIM; y++)
-		// 		{
-		// 			printf("%f, ", input_v(x, y));
-		// 		}	
-		// 		printf("\n");
-		// 	}
-		// }
 
-		// Q*K
+		// Q*K^T sub GEMM
 		qk =  (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(input_q * input_k);
 
-		
-		m_cur = qk; // lack of max of
-		
-		if(m_prev > m_cur){
-			m_cur = m_prev;
-		}	
-		
-		f = cm_pow(MATH_E, m_prev - m_cur);
-		// f = cm_exp(m_prev - m_cur);
-		l_prev *= f ;
 
-		p =  cm_pow(MATH_E, (qk - m_cur));
-		// p =  cm_exp((qk - m_cur));
+		m_cur = m_prev>qk ? m_prev : qk;
+
+		f = cm_pow((DT_ACCU)MATH_E, (m_prev - m_cur));
+		l_prev *= f;
+
+		p =  cm_pow((DT_ACCU)MATH_E, (qk - m_cur));
 
 		l_cur =  l_prev + p;  // p idx was wight?
 
@@ -139,24 +107,18 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 		// 2. For flash attention 2
 		acc *= f ;
 
-		// for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
-		// 	vector<DT_ACCU, TILE_KV> s_fp32 = vector<DT_ACCU, TILE_KV>(p); 
-		// 	vector<DT_ACCU, TILE_KV> v_fp32 = vector<DT_ACCU, TILE_KV>(input_v(v_idx));
-		// 	acc(v_idx) += cm_sum<DT_ACCU>(s_fp32 * v_fp32);
-		// }
+		// S*V sub GEMM
 		acc += p * input_v;
-
 
 		m_prev = m_cur;
 		l_prev = l_cur;
+
 	}
 
-
-
-	// if (global_x == 1 && global_y == 0 && global_z==0)
+	// if (global_x == 0 && global_y == 0 && global_z==0)
 	// {	
 	// 	printf("acc :\n");
-	// 	for (int y = 0; y < HEAD_DIM; y++)
+	// 	for (int y = 0; y < 8; y++)
 	// 	{
 	// 		printf("%f, ", acc(y));
 	// 	}	
@@ -165,13 +127,9 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_decoding(
 
 
 	// 1. For flash attention
-	// matrix<DT, TILE_Q, HEAD_DIM> acc_out = acc;
+	// vector<DT, HEAD_DIM> acc_out = acc;
 	
 	// 2. For flash attention
-	matrix<DT, TILE_Q, HEAD_DIM> acc_out = acc/l_prev;
-	
-	output_offset = threads_offset;
-	// printf("output_offset : %d \n", output_offset);
-	vector_ref<uint32_t, output_store_size> accu_0_packed = acc_out.format<uint32_t>();
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output, output_offset, accu_0_packed);
+	vector<DT, HEAD_DIM> acc_out = acc/l_cur;	
+	cm_store<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output, threads_offset, acc_out.format<uint32_t>());
 }

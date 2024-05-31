@@ -65,6 +65,7 @@ def flash_attention2(q, k, v, head_scale=1, is_train=False):
     block_head = h
     assert (f % block_m == 0)
     assert (t % block_n == 0)
+    """
     for start_m in range(0, f, block_m):  # Q_seq_len loop
         m_prev = np.zeros([block_m], dtype=np.float32) - float("inf")
         l_prev = np.zeros([block_m], dtype=np.float32)
@@ -100,6 +101,34 @@ def flash_attention2(q, k, v, head_scale=1, is_train=False):
         output[start_m: start_m+block_m, :] = acc
         m[start_m: start_m+block_m] = m_prev
         l[start_m: start_m+block_m] = l_prev
+    """
+    for start_m in range(0, f, block_m):  # Q_seq_len loop
+        m_prev = np.zeros([block_m], dtype=np.float32) - float("inf")
+        l_prev = np.zeros([block_m], dtype=np.float32)
+        acc = np.zeros([block_m, block_head], dtype=np.float32)
+        q_sub = q[start_m: start_m + block_m, :]
+        for start_n in range(0, t, block_n): # Q_seq_len loop
+            k_sub = k[start_n: start_n+block_n, :]
+            v_sub = v[start_n: start_n+block_n, :]
+            qk = np.matmul(q_sub, k_sub.T)
+            qk *= head_scale #  head_scale
+            
+            m_cur = np.maximum(np.amax(qk, -1), m_prev)
+            p = np.exp(qk - m_cur.reshape(-1, 1)) 
+                         
+
+            l_prev *= np.exp(m_prev - m_cur)
+            l_prev = np.sum(p, -1) + l_prev
+            
+            acc *= np.exp(m_prev - m_cur).reshape(-1, 1)
+            acc += np.matmul(p, v_sub)
+   
+            m_prev = m_cur
+
+        acc /= l_prev.reshape(-1, 1) # final ouput scale of flash attention 2
+        output[start_m: start_m+block_m, :] = acc
+        m[start_m: start_m+block_m] = m_prev
+        l[start_m: start_m+block_m] = l_prev
 
     if is_train:
         return output, m, l
@@ -124,16 +153,13 @@ def naive_attention(q, k, v, head_scale=1, is_train=False):
 if __name__ == "__main__":
 
 
-    q = np.random.random(size=(f, h))
-    k = np.random.random(size=(t, h))
-    v = np.random.random(size=(t, h))
-
-    # q = np.ones((f, h))
-    # k = np.ones((t, h))
-    # v = np.ones((t, h))
+    q = 10* np.random.uniform(-1, 1, size=(f, h)).astype("float16")
+    k = 10* np.random.uniform(-1, 1, size=(t, h)).astype("float16")
+    v = 10* np.random.uniform(-1, 1, size=(t, h)).astype("float16")
 
 
     desired = naive_attention(q, k, v)
+
     
     flash_att = flash_attention(q, k, v)
     np.testing.assert_allclose(flash_att, desired, rtol=1e-5, atol=1e-5)

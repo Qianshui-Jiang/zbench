@@ -18,6 +18,7 @@
 // #define HEAD_COUNT
 // #define HEAD_DIM
 // #define TILE_Q
+// #define TILE_KV
 // #define TILE_HEAD
 // #define HEAD_SCALE 
 
@@ -41,6 +42,7 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 	// printf("HEAD_DIM : %d \n", HEAD_DIM);
 	// printf("HEAD_COUNT : %d \n", HEAD_COUNT);
 	// printf("TILE_Q : %d \n", TILE_Q);
+	// printf("TILE_KV : %d \n", TILE_KV);
 	// printf("TILE_HEAD : %d \n", TILE_HEAD);
 	// printf("HEAD_SCALE : %f \n", HEAD_SCALE);
 
@@ -48,27 +50,29 @@ extern "C" _GENX_MAIN_ void flash_decoding(
     vector<DT, HEAD_DIM> input_q;
     vector_ref<uint32_t, HEAD_DIM/2> input_q_packed = input_q.format<uint32_t>();
     
-	vector<DT, HEAD_DIM> input_k;
-    vector_ref<uint32_t, HEAD_DIM/2> input_k_packed = input_k.format<uint32_t>();
+	matrix<DT, TILE_KV, HEAD_DIM> input_k;
+    matrix_ref<uint32_t, TILE_KV, HEAD_DIM/2> input_k_packed = input_k.format<uint32_t, TILE_KV, HEAD_DIM/2>();
 	
-	vector<DT, HEAD_DIM> input_v;
-    vector_ref<uint32_t, HEAD_DIM/2> input_v_packed = input_v.format<uint32_t>();
+	matrix<DT, TILE_KV, HEAD_DIM> input_v;
+    matrix_ref<uint32_t, TILE_KV, HEAD_DIM/2> input_v_packed = input_v.format<uint32_t, TILE_KV, HEAD_DIM/2>();
 
-	DT_ACCU qk;
-	DT_ACCU p;
+	vector<DT_ACCU, TILE_KV> qk;         // 
+	vector<DT_ACCU, TILE_KV> p;
 
 	DT_ACCU m_prev;  // m --> max
 	DT_ACCU m_cur;   // m --> max 
 	DT_ACCU f=0;     // f --> exp(m_prev - m_cur); 
 	DT_ACCU l_prev;	 // l --> sum of exp(Xi-m)
+	DT_ACCU l_cur;	 // l --> sum of exp(Xi-m)
 	DT_ACCU l_rcp;	 // l --> sum of exp(Xi-m)
 
 	vector<DT_ACCU, HEAD_DIM> acc;
-									// Q_SEQ_LEN pralell						// Head count pralell
+									// Q_SEQ_LEN pralell						// Q_SEQ_LEN pralell
 	const uint32_t threads_offset = (global_y * TILE_Q * HEAD_COUNT * HEAD_DIM + global_x * HEAD_DIM) * sizeof(DT) ;
 	uint32_t q_offset = 0;
 	uint32_t kv_offset = 0;
 	uint32_t output_offset = 0;
+
 
 	q_offset = threads_offset;
 	input_q_packed  = cm_load<uint32_t, (HEAD_DIM * sizeof(DT))/sizeof(uint32_t), DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_q, q_offset);
@@ -87,29 +91,59 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 	// 	printf("\n");
 	// }
 
-	for(int j=0; j<KV_SEQ_LEN; j++){  // Loop on tiled K/V --> Bc in paper
+	for(int j=0; j<KV_SEQ_LEN/TILE_KV; j++){  // Loop on tiled K/V --> Bc in paper
+	// for(int j=0; j<1; j++){  // Loop on tiled K/V --> Bc in paper
+		for(int t_kv=0; t_kv < TILE_KV; t_kv++){   // Load Tile K/V
 		// printf("Loop  Q : %d, Loop K/V: %d\n", i, j);
-		kv_offset = j * HEAD_COUNT * HEAD_DIM * sizeof(DT) + global_x  * HEAD_DIM * sizeof(DT);
-		input_k_packed  = cm_load<uint32_t, (HEAD_DIM * sizeof(DT))/sizeof(uint32_t), DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
-		input_v_packed  = cm_load<uint32_t, (HEAD_DIM * sizeof(DT))/sizeof(uint32_t), DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
+			kv_offset = j * TILE_KV * HEAD_COUNT * HEAD_DIM * sizeof(DT) + t_kv * HEAD_COUNT* HEAD_DIM * sizeof(DT) + global_x  * HEAD_DIM * sizeof(DT);
+			// kv_offset = (j * TILE_KV  + t_kv + global_x * KV_SEQ_LEN ) * HEAD_DIM * sizeof(DT) ;
+			input_k_packed.row(t_kv)  = cm_load<uint32_t, (HEAD_DIM * sizeof(DT))/sizeof(uint32_t), DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
+			input_v_packed.row(t_kv)  = cm_load<uint32_t, (HEAD_DIM * sizeof(DT))/sizeof(uint32_t), DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
+		}
 
+		// if (global_x == 0 && global_y == 0 && global_z==0)
+		// {	
+		// 	printf("input_k :\n");
+		// 	for (int x = 0; x < TILE_KV; x++){
+		// 		for (int y = 0; y < HEAD_DIM; y++)
+		// 		{
+		// 			printf("%f, ", input_k(x, y));
+		// 		}	
+		// 		printf("\n");
+		// 	}
+
+		// 	printf("input_v :\n");
+		// 	for (int x = 0; x < TILE_KV; x++){
+		// 		for (int y = 0; y < HEAD_DIM; y++)
+		// 		{
+		// 			printf("%f, ", input_v(x, y));
+		// 		}	
+		// 		printf("\n");
+		// 	}
+		// }
 
 		// Q*K
-		qk =  (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(input_q * input_k);
+		for(int k_idx=0; k_idx<TILE_KV; k_idx ++){
+			vector<DT_ACCU, HEAD_DIM> q_fp32 = vector<DT_ACCU, HEAD_DIM>(input_q);
+			vector<DT_ACCU, HEAD_DIM> k_fp32 = vector<DT_ACCU, HEAD_DIM>(input_k.row(k_idx));
+			qk(k_idx) =   (DT_ACCU)HEAD_SCALE * cm_sum<DT_ACCU>(q_fp32 * k_fp32);
+		}
 
 		
-		m_cur = qk; // lack of max of
+		m_cur = cm_reduced_max<DT_ACCU>(qk); // lack of max of
 		
 		if(m_prev > m_cur){
 			m_cur = m_prev;
 		}	
 		
-		f = cm_pow((DT_ACCU)MATH_E, m_prev - m_cur);
-		l_prev *= f;
+		f = cm_pow(MATH_E, m_prev - m_cur);
+		// f = cm_exp(m_prev - m_cur);
+		l_prev *= f ;
 
-		p =  cm_pow((DT_ACCU)MATH_E, (qk - m_cur));
+		p =  cm_pow(MATH_E, (qk - m_cur));
+		// p =  cm_exp((qk - m_cur));
 
-		l_prev =  l_prev + p;  // p idx was wight?
+		l_cur =  l_prev + cm_sum<DT_ACCU>(p);  // p idx was wight?
 
 		// 1. For flash attention
 		// l_rcp = 1/l_cur;
@@ -119,12 +153,16 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 		// 2. For flash attention 2
 		acc *= f ;
 
-		acc += p * input_v;
-		// for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
-			// acc(v_idx) += p * (DT_ACCU)input_v(v_idx);
-		// }
+		for(int v_idx=0; v_idx<HEAD_DIM; v_idx ++){
+			vector<DT_ACCU, TILE_KV> s_fp32 = vector<DT_ACCU, TILE_KV>(p); 
+			vector<DT_ACCU, TILE_KV> v_fp32 = vector<DT_ACCU, TILE_KV>(input_v.column(v_idx));
+			acc(v_idx) += cm_sum<DT_ACCU>(s_fp32 * v_fp32);
+		}
+
 		m_prev = m_cur;
+		l_prev = l_cur;
 	}
+
 	// if (global_x == 1 && global_y == 0 && global_z==0)
 	// {	
 	// 	printf("acc :\n");
@@ -140,12 +178,13 @@ extern "C" _GENX_MAIN_ void flash_decoding(
 	// matrix<DT, TILE_Q, HEAD_DIM> acc_out = acc;
 	
 	// 2. For flash attention
-	vector<DT, HEAD_DIM> acc_out = acc/l_prev;
+	matrix<DT, TILE_Q, HEAD_DIM> acc_out = acc/l_prev;
 	
-	output_offset = threads_offset;
 	const uint32_t output_store_size = (HEAD_DIM * sizeof(DT)) / sizeof(uint32_t);
+	output_offset = threads_offset;
 	// printf("output_offset : %d \n", output_offset);
-	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output, output_offset, acc_out.format<uint32_t>());
+	vector_ref<uint32_t, output_store_size> accu_0_packed = acc_out.format<uint32_t>();
+	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output, output_offset, accu_0_packed);
 
 	
 }

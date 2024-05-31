@@ -1,0 +1,87 @@
+{
+    "$schema": "./_schema.json",
+
+    "resources":
+    {
+		"query": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/q_tensor.npy" }
+        },
+        "key": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/k_tensor.npy" }
+        },
+        "value": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/v_tensor.npy" }
+        },
+		"past_seq_len": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/past_seq_len_tensor.npy" }
+        },
+        "present_key": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/present_k_tensor.npy" }
+        },
+        "present_value": 
+        {
+            "initialValues": { "sourcePath": "./flash_decoding_json/tensor_file/present_v_tensor.npy" }
+        },
+        "output": 
+        {
+            "initialValuesDataType": "FLOAT16",
+            "initialValues": { "valueCount": 4096, "value": 0 }
+        }
+    },
+
+    "dispatchables":
+    {
+        "mha": 
+        {
+            "type": "DML_OPERATOR_MULTIHEAD_ATTENTION1",
+            "desc": 
+            {
+                "QueryTensor": { "DataType": "FLOAT16", "Sizes":  [1, 1, 1, 4096] },
+                "KeyTensor": { "DataType": "FLOAT16", "Sizes":    [1, 1, 1, 4096] },
+                "ValueTensor": { "DataType": "FLOAT16", "Sizes":  [1, 1, 1, 4096] },
+                "PastSequenceLengthsTensor": { "DataType": "INT32", "Sizes": [1, 1, 1, 1, 1] },
+                "OutputTensor": { "DataType": "FLOAT16", "Sizes": [1, 1, 1, 4096] },
+                "OutputPresentKeyTensor": { "DataType": "FLOAT16", "Sizes":    [1, 32, 2048, 128] },
+                "OutputPresentValueTensor": { "DataType": "FLOAT16", "Sizes":  [1, 32, 2048, 128] },
+                "Scale": 0.0883883,
+                "MaskFilterValue": -10000,
+                "QueryHeadCount": 32,
+                "KeyValueHeadCount": 32,
+                "MaskType": "DML_MULTIHEAD_ATTENTION_MASK_TYPE_NONE"
+            },
+            "executionFlags":[
+                "DML_EXECUTION_FLAG_ALLOW_HALF_PRECISION_COMPUTATION"
+            ]
+        }
+    },
+
+    "commands":
+    [
+        {
+            "type": "dispatch",
+            "dispatchable": "mha",
+            "bindings": 
+            {
+                "QueryTensor": "query",
+                "KeyTensor": "key",
+                "ValueTensor": "value",
+                "PastSequenceLengthsTensor": "past_seq_len",
+                "OutputTensor": "output",
+                "OutputPresentKeyTensor": "present_key",
+                "OutputPresentValueTensor": "present_value"
+            }
+        },
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_query.npy", "resource": "query"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_key.npy", "resource": "key"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_value.npy", "resource": "value"},
+        {    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_past_seq_len.npy", "resource": "past_seq_len"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_present_key.npy", "resource": "present_key"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_present_value.npy", "resource": "present_value"},
+		{    "type": "writeFile", "targetPath": "./flash_decoding_json/tensor_file/dml_mha_q_k_v2048_output.npy", "resource": "output"} 
+    ]
+}

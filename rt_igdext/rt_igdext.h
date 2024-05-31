@@ -11,7 +11,7 @@ namespace py=pybind11;
 #include <nlohmann/json.hpp>
 namespace nl=nlohmann;
 
-typedef uint16_t MType;
+typedef uint32_t MType;
 
 std::vector<MType> launch_rt_igdext(const std::string &cm_file , const std::string &build_options,
                                     const py::args& args, const py::kwargs& kwargs);
