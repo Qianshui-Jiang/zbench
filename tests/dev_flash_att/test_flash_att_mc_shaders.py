@@ -438,6 +438,8 @@ def test_2nd_token_flash_decoding_mc_shader():
                         tx, ty, tz,  
                         iter_num):
         # ACCU_IS_FP32 will have impact on performance
+        # for phi-2 HEAD_DIM = 80
+        # for LLAMA2 and Mistral-7B HEAD_DIM = 128
         _define =  f"-DQ_SEQ_LEN={past_seq_len_value} -DKV_SEQ_LEN={2048} -DQ_HEAD_COUNT={32} -DKV_HEAD_COUNT={32} -DHEAD_DIM={128} "
 
         _define += f"-DTILE_Q={tile_q} -DTILE_KV={1} -DTILE_HEAD={128} -DHEAD_SCALE=0.0883883 "
@@ -533,7 +535,7 @@ def test_2nd_token_flash_decoding_mc_shader():
 
 
 if __name__ == "__main__":
-    # test_sliding_GQA_flash_decoding_mc_shader()
+    # test_sliding_GQA_flash_decoding_mc_shader()  # 2nd+ token generation case
 
     # test_1st_token_flash_decoding_mc_shader_small()
     test_1st_token_flash_decoding_mc_shader()

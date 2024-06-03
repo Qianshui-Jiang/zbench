@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # launch_dxdispatch(mha_json)
 
     # [New MHA] LLAMA2 1st token shape test 
-    mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_1st_token_2048.json"
+    mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_1st_token_255.json"
     gen_q_k_v_input(input_json = mha_json, is_new = True, past_seq_len=0)
     launch_dxdispatch(mha_json)
     
@@ -127,6 +127,6 @@ if __name__ == "__main__":
     # launch_dxdispatch(mha_json)
 
     # # [New MHA] LLAMA2 2nd+ token shape test 
-    mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_2048.json"
+    mha_json = "./flash_decoding_json/new_dml_mha_q_k_v_255.json"
     gen_q_k_v_input(input_json = mha_json, is_new = True, past_seq_len = 255)
     launch_dxdispatch(mha_json)

@@ -83,17 +83,18 @@ extern "C" _GENX_MAIN_ void mha_q_k_v_flash_1st_token(
 	// Main loop of K/v seq_len
 	// for(int j=0; j<Q_SEQ_LEN; j++){  // Loop on tiled K/V --> Bc in paper
 	// #pragma unroll
+	// jth col in Q  ---> KV cols < j
 	for(int j=0; j<global_y+1; j++){  // Loop on tiled K/V --> Bc in paper
 		kv_offset  = j * TILE_Q * HEAD_COUNT * HEAD_DIM * sizeof(DT) + global_x  * HEAD_DIM * sizeof(DT) ;
 		input_k_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_k, kv_offset);
 		input_v_packed  = cm_load<uint32_t, LD_ST_SIZE, DataSize::Default, CacheHint::Cached, CacheHint::Cached>(surface_input_v, kv_offset);
 
 		// // store to Output Present K/V
-		// if(global_y==Q_SEQ_LEN-1){
-		// 	output_offset = (global_x * KV_SEQ_LEN +  j ) * HEAD_DIM * sizeof(DT) ;
-		// 	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_k, output_offset, input_k_packed.format<uint32_t>());
-		// 	cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_v, output_offset, input_v_packed.format<uint32_t>());
-		// }
+		if(global_y==Q_SEQ_LEN-1){
+			output_offset = (global_x * KV_SEQ_LEN +  j ) * HEAD_DIM * sizeof(DT) ;
+			cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_k, output_offset, input_k_packed.format<uint32_t>());
+			cm_store<uint32_t, output_store_size, DataSize::Default, CacheHint::WriteBack, CacheHint::WriteBack>(surface_output_present_v, output_offset, input_v_packed.format<uint32_t>());
+		}
 		
 
 		// Q*K
